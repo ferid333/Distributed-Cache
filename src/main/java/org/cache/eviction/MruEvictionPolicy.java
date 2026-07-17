@@ -1,8 +1,8 @@
 package org.cache.eviction;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class MruEvictionPolicy<K> implements EvictionPolicy<K> {
 
@@ -11,7 +11,7 @@ public class MruEvictionPolicy<K> implements EvictionPolicy<K> {
     private final Map<K, Node<K>> keyMap;
 
     public MruEvictionPolicy() {
-        this.keyMap = new HashMap<>();
+        this.keyMap = new ConcurrentHashMap<>();
         this.right = new Node<>(null);
         this.left = new Node<>(null);
 
@@ -20,7 +20,7 @@ public class MruEvictionPolicy<K> implements EvictionPolicy<K> {
     }
 
     @Override
-    public void onKeyAdded(K key) {
+    public synchronized void onKeyAdded(K key) {
 
         if (keyMap.containsKey(key)) {
             onKeyRemoved(key);
@@ -38,13 +38,13 @@ public class MruEvictionPolicy<K> implements EvictionPolicy<K> {
     }
 
     @Override
-    public void onKeyAccessed(K key) {
+    public synchronized void onKeyAccessed(K key) {
         onKeyRemoved(key);
         onKeyAdded(key);
     }
 
     @Override
-    public void onKeyRemoved(K key) {
+    public synchronized void onKeyRemoved(K key) {
         var removedNode = keyMap.get(key);
         if (removedNode == null) return;
 
@@ -58,7 +58,7 @@ public class MruEvictionPolicy<K> implements EvictionPolicy<K> {
     }
 
     @Override
-    public Optional<K> selectVictim() {
+    public synchronized Optional<K> selectVictim() {
         if (keyMap.isEmpty()) {
             return Optional.empty();
         }
