@@ -2,7 +2,6 @@ package org.cache;
 
 
 import org.cache.core.LocalCache;
-import org.cache.eviction.EvictionPolicy;
 import org.cache.eviction.LruEvictionPolicy;
 
 public class Main {
@@ -24,5 +23,7 @@ public class Main {
         System.out.println(localCache.get("test"));
         System.out.println(localCache.get("test1").orElse(null));
 
+
+        System.out.println(localCache.metrics().getEvictions());
     }
 }
