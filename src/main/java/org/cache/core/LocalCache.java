@@ -1,5 +1,7 @@
 package org.cache.core;
 
+import org.cache.core.metrics.CacheMetrics;
+import org.cache.core.metrics.Snapshot;
 import org.cache.eviction.EvictionPolicy;
 
 import java.util.Iterator;
@@ -15,6 +17,7 @@ public class LocalCache<K, V> implements Cache<K, V>, AutoCloseable {
     private final ConcurrentHashMap<K, CacheEntry<V>> cache;
     private final int capacity;
     private final EvictionPolicy<K> evictionPolicy;
+    private final CacheMetrics metrics;
     private final Object evictionLock;
     private final int cleanupBatchSize;
     private final ScheduledExecutorService cleanupScheduler;
@@ -34,6 +37,7 @@ public class LocalCache<K, V> implements Cache<K, V>, AutoCloseable {
         this.cache = new ConcurrentHashMap<>();
         this.capacity = capacity;
         this.evictionPolicy = evictionPolicy;
+        this.metrics = new CacheMetrics();
         this.evictionLock = new Object();
         this.cleanupBatchSize = cleanupBatchSize;
         this.cleanupIterator = cache.entrySet().iterator();
@@ -62,8 +66,10 @@ public class LocalCache<K, V> implements Cache<K, V>, AutoCloseable {
 
             if (cache.size() > capacity) {
                 evictionPolicy.selectVictim().ifPresent(victim -> {
-                    cache.remove(victim);
-                    evictionPolicy.onKeyRemoved(victim);
+                    if (cache.remove(victim) != null) {
+                        evictionPolicy.onKeyRemoved(victim);
+                        metrics.recordEviction();
+                    }
                 });
             }
         }
@@ -74,6 +80,7 @@ public class LocalCache<K, V> implements Cache<K, V>, AutoCloseable {
         var entry = cache.get(key);
 
         if (entry == null) {
+            metrics.recordMiss();
             return Optional.empty();
         }
 
@@ -81,17 +88,21 @@ public class LocalCache<K, V> implements Cache<K, V>, AutoCloseable {
             var currentEntry = cache.get(key);
 
             if (currentEntry == null) {
+                metrics.recordMiss();
                 return Optional.empty();
             }
 
-            if(currentEntry.isExpired()) {
+            if (currentEntry.isExpired()) {
                 cache.remove(key);
                 evictionPolicy.onKeyRemoved(key);
+                metrics.recordMiss();
+                metrics.recordExpiration();
 
                 return Optional.empty();
             }
 
             evictionPolicy.onKeyAccessed(key);
+            metrics.recordHit();
             return Optional.ofNullable(currentEntry.getValue());
         }
     }
@@ -141,13 +152,18 @@ public class LocalCache<K, V> implements Cache<K, V>, AutoCloseable {
                 if (currentEntry != null && currentEntry.isExpired()) {
                     cache.remove(entry.getKey());
                     evictionPolicy.onKeyRemoved(entry.getKey());
+                    metrics.recordExpiration();
                 }
             }
         }
     }
 
     @Override
-    public void close() throws Exception {
-        cleanupScheduler.close();
+    public void close() {
+        cleanupScheduler.shutdownNow();
+    }
+
+    public Snapshot metrics() {
+        return metrics.snapshot();
     }
 }
