@@ -163,6 +163,7 @@ public class LocalCache<K, V> implements Cache<K, V>, AutoCloseable {
         cleanupScheduler.shutdownNow();
     }
 
+    @Override
     public Snapshot metrics() {
         return metrics.snapshot();
     }

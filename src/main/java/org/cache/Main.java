@@ -3,27 +3,24 @@ package org.cache;
 
 import org.cache.core.LocalCache;
 import org.cache.eviction.LruEvictionPolicy;
+import org.cache.network.TcpCacheServer;
+import org.cache.protocol.CommandParser;
+import org.cache.protocol.CommandProcessor;
+import org.cache.protocol.codec.StringCodec;
+
+import java.io.IOException;
 
 public class Main {
-    public static void main(String[] args) {
-
-        LruEvictionPolicy<String> lruEvictionPolicy = new LruEvictionPolicy<>();
-        LocalCache<String, String> localCache = new LocalCache<>(2, lruEvictionPolicy);
-
-        localCache.put("test", "first value", 100);
-
-        System.out.println(localCache.get("test").orElse(null));
-
-        localCache.put("test1", "second value", 100);
-        System.out.println(localCache.get("test").orElse(null));
-        localCache.put("test2", "third value", 100);
+    public static void main(String[] args) throws IOException {
+        int port = args.length > 0 ? Integer.parseInt(args[0]) : 2020;
+        var cache = new LocalCache<String, String>(1_000, new LruEvictionPolicy<>());
+        var stringCodec = new StringCodec();
+        var commandParser = new CommandParser<>(stringCodec, stringCodec);
+        var commandProcessor = new CommandProcessor<>(cache, commandParser, stringCodec);
 
 
-        System.out.println(localCache.size());
-        System.out.println(localCache.get("test"));
-        System.out.println(localCache.get("test1").orElse(null));
-
-
-        System.out.println(localCache.metrics().getEvictions());
+        try (cache; var server = new TcpCacheServer(port, commandProcessor)) {
+            server.start();
+        }
     }
 }
