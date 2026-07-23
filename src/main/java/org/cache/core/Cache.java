@@ -1,5 +1,7 @@
 package org.cache.core;
 
+import org.cache.core.metrics.Snapshot;
+
 import java.util.Optional;
 
 public interface Cache<K, V> {
@@ -13,4 +15,6 @@ public interface Cache<K, V> {
     int size();
 
     void clear();
+
+    Snapshot metrics();
 }
