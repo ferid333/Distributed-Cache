@@ -4,6 +4,8 @@ import org.cache.core.Cache;
 import org.cache.protocol.codec.Codec;
 import org.cache.protocol.commands.CacheCommand;
 
+import java.util.List;
+
 public class CommandProcessor<K, V> {
 
     private final Cache<K, V> cache;
@@ -18,6 +20,11 @@ public class CommandProcessor<K, V> {
 
     public String process(String rawCommand) {
         CacheCommand<K, V> command = parser.parse(rawCommand);
+        return command.process(cache, valueCodec);
+    }
+
+    public String process(List<String> commandParts) {
+        CacheCommand<K, V> command = parser.parse(commandParts);
         return command.process(cache, valueCodec);
     }
 }
