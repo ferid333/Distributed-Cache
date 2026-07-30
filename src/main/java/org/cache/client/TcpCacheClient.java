@@ -1,12 +1,13 @@
 package org.cache.client;
 
+import org.cache.client.serializer.Serializer;
 import org.cache.core.metrics.Snapshot;
 import org.cache.network.connection.RespConnection;
-import org.cache.protocol.codec.Codec;
-import org.cache.protocol.codec.StringCodec;
+import org.cache.protocol.codec.KeyCodec;
 import org.cache.protocol.commands.ResponseConstants;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.List;
 import java.util.Optional;
@@ -16,25 +17,30 @@ import static org.cache.protocol.commands.ResponseConstants.OK;
 
 public class TcpCacheClient<K, V> implements CacheClient<K, V>, AutoCloseable {
 
-    private final RespConnection connection;
-    private final Codec<K> keyCodec;
-    private final Codec<V> valueCodec;
+    private static final int DEFAULT_CONNECT_TIMEOUT_MILLIS = 2_000;
+    private static final int DEFAULT_READ_TIMEOUT_MILLIS = 5_000;
 
-    @SuppressWarnings("unchecked")
-    public TcpCacheClient(String address, int port) {
-        this(
-                address,
-                port,
-                (Codec<K>) new StringCodec(),
-                (Codec<V>) new StringCodec()
-        );
+    private final RespConnection connection;
+    private final KeyCodec<K> keyCodec;
+    private final Serializer<V> valueSerializer;
+
+
+    public TcpCacheClient(String address, int port, KeyCodec<K> keyCodec, Serializer<V> valueSerializer) {
+        this(address, port, keyCodec, valueSerializer, DEFAULT_CONNECT_TIMEOUT_MILLIS, DEFAULT_READ_TIMEOUT_MILLIS);
     }
 
-    public TcpCacheClient(String address, int port, Codec<K> keyCodec, Codec<V> valueCodec) {
+    public TcpCacheClient(
+            String address,
+            int port,
+            KeyCodec<K> keyCodec,
+            Serializer<V> valueSerializer,
+            int connectTimeoutMillis,
+            int readTimeoutMillis
+    ) {
         try {
-            this.connection = new RespConnection(new Socket(address, port));
+            this.connection = new RespConnection(connect(address, port, connectTimeoutMillis, readTimeoutMillis));
             this.keyCodec = keyCodec;
-            this.valueCodec = valueCodec;
+            this.valueSerializer = valueSerializer;
         } catch (IOException exception) {
             throw new CacheClientException("failed to connect to cache server", exception);
         }
@@ -42,43 +48,40 @@ public class TcpCacheClient<K, V> implements CacheClient<K, V>, AutoCloseable {
 
     @Override
     public void put(K key, V value, long ttl) {
-        expectOk(List.of("PUT", keyCodec.encode(key), valueCodec.encode(value), Long.toString(ttl)));
+        expectOk(List.of("PUT", keyCodec.encode(key), valueSerializer.encode(value), Long.toString(ttl)));
     }
 
     @Override
     public void put(K key, V value) {
-        expectOk(List.of("PUT", keyCodec.encode(key), valueCodec.encode(value)));
+        expectOk(List.of("PUT", keyCodec.encode(key), valueSerializer.encode(value)));
     }
 
     @Override
     public Optional<V> get(K key) {
-        String response = send(List.of("GET", keyCodec.encode(key)));
+        List<String> response = send(List.of("GET", keyCodec.encode(key)));
 
-        if (response.equals(ResponseConstants.NOT_FOUND.name())) {
+        if (isResponse(response, ResponseConstants.NOT_FOUND.name(), 1)) {
             return Optional.empty();
         }
 
-        String prefix = ResponseConstants.VALUE.name() + " ";
-        if (response.startsWith(prefix)) {
-            return Optional.of(valueCodec.decode(response.substring(prefix.length())));
+        if (isResponse(response, ResponseConstants.VALUE.name(), 2)) {
+            return Optional.of(valueSerializer.decode(response.get(1)));
         }
 
-        throw protocolException(response);
+        throw new CacheClientException("unexpected cache server response: " + response);
     }
 
     @Override
-    public boolean delete(K key) {
+    public void delete(K key) {
         expectOk(List.of("DELETE", keyCodec.encode(key)));
-        return true;
     }
 
     @Override
     public Snapshot metrics() {
-        String response = send(List.of("METRICS"));
-        String prefix = ResponseConstants.METRICS.name() + " ";
+        List<String> response = send(List.of("METRICS"));
 
-        if (!response.startsWith(prefix)) {
-            throw protocolException(response);
+        if (response.isEmpty() || !response.get(0).equals(ResponseConstants.METRICS.name())) {
+            throw new CacheClientException("unexpected cache server response: " + response);
         }
 
         long hits = 0;
@@ -87,20 +90,25 @@ public class TcpCacheClient<K, V> implements CacheClient<K, V>, AutoCloseable {
         long expirations = 0;
         double hitRate = 0;
 
-        String[] metrics = response.substring(prefix.length()).split("\\s+");
-        for (String metric : metrics) {
-            String[] parts = metric.split("=", 2);
-            if (parts.length != 2) {
-                throw protocolException(response);
-            }
+        if ((response.size() - 1) % 2 != 0) {
+            throw new CacheClientException("unexpected cache server response: " + response);
+        }
 
-            switch (parts[0]) {
-                case "hits" -> hits = Long.parseLong(parts[1]);
-                case "misses" -> misses = Long.parseLong(parts[1]);
-                case "evictions" -> evictions = Long.parseLong(parts[1]);
-                case "expirations" -> expirations = Long.parseLong(parts[1]);
-                case "hitRate" -> hitRate = Double.parseDouble(parts[1]);
-                default -> throw protocolException(response);
+        for (int i = 1; i < response.size(); i += 2) {
+            String name = response.get(i);
+            String value = response.get(i + 1);
+
+            try {
+                switch (name) {
+                    case "hits" -> hits = Long.parseLong(value);
+                    case "misses" -> misses = Long.parseLong(value);
+                    case "evictions" -> evictions = Long.parseLong(value);
+                    case "expirations" -> expirations = Long.parseLong(value);
+                    case "hitRate" -> hitRate = Double.parseDouble(value);
+                    default -> throw new CacheClientException("unexpected cache server response: " + response);
+                }
+            } catch (NumberFormatException exception) {
+                throw new CacheClientException("unexpected cache server response: " + response);
             }
         }
 
@@ -109,14 +117,13 @@ public class TcpCacheClient<K, V> implements CacheClient<K, V>, AutoCloseable {
 
     @Override
     public int size() {
-        String response = send(List.of("SIZE"));
-        String prefix = ResponseConstants.SIZE.name() + " ";
+        List<String> response = send(List.of("SIZE"));
 
-        if (!response.startsWith(prefix)) {
-            throw protocolException(response);
+        if (!isResponse(response, ResponseConstants.SIZE.name(), 2)) {
+            throw new CacheClientException("unexpected cache server response: " + response);
         }
 
-        return Integer.parseInt(response.substring(prefix.length()));
+        return Integer.parseInt(response.get(1));
     }
 
     @Override
@@ -134,19 +141,19 @@ public class TcpCacheClient<K, V> implements CacheClient<K, V>, AutoCloseable {
     }
 
     private void expectOk(List<String> command) {
-        String response = send(command);
+        List<String> response = send(command);
 
-        if (!response.equals(OK.name())) {
-            throw protocolException(response);
+        if (!isResponse(response, OK.name(), 1)) {
+            throw new CacheClientException("unexpected cache server response: " + response);
         }
     }
 
-    private String send(List<String> command) {
+    private List<String> send(List<String> command) {
         try {
-            String response = connection.sendCommand(command);
+            List<String> response = connection.sendCommandForResponse(command);
 
-            if (response.startsWith(ERROR.name() + " ")) {
-                throw protocolException(response);
+            if (!response.isEmpty() && response.getFirst().equals(ERROR.name())) {
+                throw new CacheClientException("unexpected cache server response: " + response);
             }
 
             return response;
@@ -155,7 +162,24 @@ public class TcpCacheClient<K, V> implements CacheClient<K, V>, AutoCloseable {
         }
     }
 
-    private CacheClientException protocolException(String response) {
-        return new CacheClientException("unexpected cache server response: " + response);
+    private boolean isResponse(List<String> response, String type, int size) {
+        return response.size() == size && response.getFirst().equals(type);
+    }
+
+    private static Socket connect(
+            String address,
+            int port,
+            int connectTimeoutMillis,
+            int readTimeoutMillis
+    ) throws IOException {
+        Socket socket = new Socket();
+        try {
+            socket.connect(new InetSocketAddress(address, port), connectTimeoutMillis);
+            socket.setSoTimeout(readTimeoutMillis);
+            return socket;
+        } catch (IOException exception) {
+            socket.close();
+            throw exception;
+        }
     }
 }

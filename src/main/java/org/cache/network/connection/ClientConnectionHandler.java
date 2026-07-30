@@ -9,9 +9,9 @@ import java.util.List;
 public class ClientConnectionHandler implements Runnable {
 
     private final Socket socket;
-    private final CommandProcessor<?, ?> commandProcessor;
+    private final CommandProcessor<?> commandProcessor;
 
-    public ClientConnectionHandler(Socket socket, CommandProcessor<?, ?> commandProcessor) {
+    public ClientConnectionHandler(Socket socket, CommandProcessor<?> commandProcessor) {
         this.socket = socket;
         this.commandProcessor = commandProcessor;
     }

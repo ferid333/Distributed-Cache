@@ -1,22 +1,27 @@
 package org.cache;
 
-
 import org.cache.core.LocalCache;
+import org.cache.core.ValueType;
 import org.cache.eviction.LruEvictionPolicy;
 import org.cache.network.TcpCacheServer;
 import org.cache.protocol.CommandParser;
 import org.cache.protocol.CommandProcessor;
-import org.cache.protocol.codec.StringCodec;
+import org.cache.protocol.codec.ListValueCodec;
+import org.cache.protocol.codec.StringKeyCodec;
+import org.cache.protocol.codec.StringValueCodec;
+import org.cache.protocol.codec.ValueCodecRegistry;
 
 import java.io.IOException;
 
 public class Main {
     public static void main(String[] args) throws IOException {
         int port = args.length > 0 ? Integer.parseInt(args[0]) : 2020;
-        var cache = new LocalCache<String, String>(1_000, new LruEvictionPolicy<>());
-        var stringCodec = new StringCodec();
-        var commandParser = new CommandParser<>(stringCodec, stringCodec);
-        var commandProcessor = new CommandProcessor<>(cache, commandParser, stringCodec);
+        var cache = new LocalCache<String>(1_000, new LruEvictionPolicy<>());
+        var keyCodec = new StringKeyCodec();
+        var valueCodecs = new ValueCodecRegistry();
+        valueCodecs.register(ValueType.STRING, new StringValueCodec()).register(ValueType.LIST, new ListValueCodec());
+        var commandParser = new CommandParser<>(keyCodec);
+        var commandProcessor = new CommandProcessor<>(cache, commandParser, valueCodecs);
 
 
         try (cache; var server = new TcpCacheServer(port, commandProcessor)) {

@@ -4,11 +4,11 @@ import org.cache.core.metrics.Snapshot;
 
 import java.util.Optional;
 
-public interface Cache<K, V> {
+public interface Cache<K> {
 
-    void put(K key, V value, long ttlMillis);
+    void put(K key, byte[] value, ValueType type, long ttlMillis);
 
-    Optional<V> get(K key);
+    Optional<CacheEntry> get(K key);
 
     void delete(K key);
 

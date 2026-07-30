@@ -1,6 +1,6 @@
 package org.cache.protocol.codec;
 
-public class StringCodec implements Codec<String> {
+public class StringKeyCodec implements KeyCodec<String> {
 
     @Override
     public String decode(String value) {

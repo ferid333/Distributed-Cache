@@ -12,7 +12,7 @@ public interface CacheClient<K, V> {
 
     Optional<V> get(K key);
 
-    boolean delete(K key);
+    void delete(K key);
 
     Snapshot metrics();
 

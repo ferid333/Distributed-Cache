@@ -10,6 +10,12 @@ import java.util.List;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.cache.protocol.ProtocolConstants.*;
+import static org.cache.protocol.commands.ResponseConstants.ERROR;
+import static org.cache.protocol.commands.ResponseConstants.METRICS;
+import static org.cache.protocol.commands.ResponseConstants.NOT_FOUND;
+import static org.cache.protocol.commands.ResponseConstants.OK;
+import static org.cache.protocol.commands.ResponseConstants.SIZE;
+import static org.cache.protocol.commands.ResponseConstants.VALUE;
 
 public class RespConnection implements ProtocolConnection, AutoCloseable {
 
@@ -53,11 +59,7 @@ public class RespConnection implements ProtocolConnection, AutoCloseable {
 
     @Override
     public void write(String value) throws IOException {
-        byte[] bytes = value.getBytes(UTF_8);
-        writeAscii(BULK_STRING_PREFIX + Integer.toString(bytes.length) + CRLF);
-        output.write(bytes);
-        writeAscii(CRLF);
-        output.flush();
+        writeArray(responseParts(value));
     }
 
     @Override
@@ -66,8 +68,13 @@ public class RespConnection implements ProtocolConnection, AutoCloseable {
     }
 
     public String sendCommand(List<String> commandParts) throws IOException {
+        List<String> response = sendCommandForResponse(commandParts);
+        return String.join(" ", response);
+    }
+
+    public List<String> sendCommandForResponse(List<String> commandParts) throws IOException {
         writeArray(commandParts);
-        String response = readString();
+        List<String> response = readResponse();
 
         if (response == null) {
             throw new IOException("Connection closed");
@@ -90,6 +97,16 @@ public class RespConnection implements ProtocolConnection, AutoCloseable {
     }
 
     private String readString() throws IOException {
+        List<String> response = readResponse();
+
+        if (response == null) {
+            return null;
+        }
+
+        return String.join(" ", response);
+    }
+
+    private List<String> readResponse() throws IOException {
         int type = input.read();
 
         if (type == -1) {
@@ -97,11 +114,23 @@ public class RespConnection implements ProtocolConnection, AutoCloseable {
         }
 
         return switch (type) {
-            case SIMPLE_STRING_PREFIX, INTEGER_PREFIX -> lines.readLine();
-            case ERROR_PREFIX -> "ERROR " + lines.readLine();
-            case BULK_STRING_PREFIX -> readBulkStringAfterType();
+            case ARRAY_PREFIX -> readArrayAfterType();
+            case SIMPLE_STRING_PREFIX, INTEGER_PREFIX -> List.of(lines.readLine());
+            case ERROR_PREFIX -> List.of(ERROR.name(), lines.readLine());
+            case BULK_STRING_PREFIX -> List.of(readBulkStringAfterType());
             default -> throw new IOException("Unsupported RESP response type: " + (char) type);
         };
+    }
+
+    private List<String> readArrayAfterType() throws IOException {
+        int itemCount = parseInteger(lines.readLine(), "array length");
+        List<String> values = new ArrayList<>(itemCount);
+
+        for (int i = 0; i < itemCount; i++) {
+            values.add(readBulkString());
+        }
+
+        return values;
     }
 
     private String readBulkString() throws IOException {
@@ -145,6 +174,46 @@ public class RespConnection implements ProtocolConnection, AutoCloseable {
 
     private void writeAscii(String value) throws IOException {
         output.write(value.getBytes(US_ASCII));
+    }
+
+    private List<String> responseParts(String response) {
+        if (response.equals(OK.name()) || response.equals(NOT_FOUND.name())) {
+            return List.of(response);
+        }
+
+        if (response.startsWith(ERROR.name() + " ")) {
+            return List.of(ERROR.name(), response.substring((ERROR.name() + " ").length()));
+        }
+
+        if (response.startsWith(VALUE.name() + " ")) {
+            return List.of(VALUE.name(), response.substring((VALUE.name() + " ").length()));
+        }
+
+        if (response.startsWith(SIZE.name() + " ")) {
+            return List.of(SIZE.name(), response.substring((SIZE.name() + " ").length()));
+        }
+
+        if (response.startsWith(METRICS.name() + " ")) {
+            return metricParts(response);
+        }
+
+        return List.of(response);
+    }
+
+    private List<String> metricParts(String response) {
+        List<String> parts = new ArrayList<>();
+        parts.add(METRICS.name());
+
+        String metrics = response.substring((METRICS.name() + " ").length());
+        for (String metric : metrics.split("\\s+")) {
+            String[] nameAndValue = metric.split("=", 2);
+            if (nameAndValue.length == 2) {
+                parts.add(nameAndValue[0]);
+                parts.add(nameAndValue[1]);
+            }
+        }
+
+        return parts;
     }
 
     @Override

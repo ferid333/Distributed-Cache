@@ -7,5 +7,6 @@ public enum CommandType {
     SIZE,
     CLEAR,
     METRICS,
+    PUSH,
     UNKNOWN
 }
