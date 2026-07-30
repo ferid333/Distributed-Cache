@@ -1,23 +1,25 @@
 package org.cache.protocol;
 
 import org.cache.core.Cache;
-import org.cache.protocol.codec.Codec;
+import org.cache.protocol.codec.ValueCodecRegistry;
 import org.cache.protocol.commands.CacheCommand;
 
-public class CommandProcessor<K, V> {
+import java.util.List;
 
-    private final Cache<K, V> cache;
-    private final CommandParser<K, V> parser;
-    private final Codec<V> valueCodec;
+public class CommandProcessor<K> {
 
-    public CommandProcessor(Cache<K, V> cache, CommandParser<K, V> parser, Codec<V> valueCodec) {
+    private final Cache<K> cache;
+    private final CommandParser<K> parser;
+    private final ValueCodecRegistry valueCodecs;
+
+    public CommandProcessor(Cache<K> cache, CommandParser<K> parser, ValueCodecRegistry valueCodecs) {
         this.cache = cache;
         this.parser = parser;
-        this.valueCodec = valueCodec;
+        this.valueCodecs = valueCodecs;
     }
 
-    public String process(String rawCommand) {
-        CacheCommand<K, V> command = parser.parse(rawCommand);
-        return command.process(cache, valueCodec);
+    public String process(List<String> commandParts) {
+        CacheCommand<K> command = parser.parse(commandParts);
+        return command.process(cache, valueCodecs);
     }
 }

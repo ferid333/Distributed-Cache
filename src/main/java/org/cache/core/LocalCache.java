@@ -12,16 +12,16 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-public class LocalCache<K, V> implements Cache<K, V>, AutoCloseable {
+public class LocalCache<K> implements Cache<K>, AutoCloseable {
 
-    private final ConcurrentHashMap<K, CacheEntry<V>> cache;
+    private final ConcurrentHashMap<K, CacheEntry> cache;
     private final int capacity;
     private final EvictionPolicy<K> evictionPolicy;
     private final CacheMetrics metrics;
     private final Object evictionLock;
     private final int cleanupBatchSize;
     private final ScheduledExecutorService cleanupScheduler;
-    private Iterator<Map.Entry<K, CacheEntry<V>>> cleanupIterator;
+    private Iterator<Map.Entry<K, CacheEntry>> cleanupIterator;
 
     public LocalCache(int capacity, EvictionPolicy<K> evictionPolicy) {
         this(capacity, evictionPolicy, 1_000, 100);
@@ -56,9 +56,9 @@ public class LocalCache<K, V> implements Cache<K, V>, AutoCloseable {
     }
 
     @Override
-    public void put(K key, V value, long ttlMillis) {
+    public void put(K key, byte[] value, ValueType type, long ttlMillis) {
 
-        var newEntry = new CacheEntry<>(value, ttlMillis);
+        var newEntry = new CacheEntry(value, type, ttlMillis);
 
         synchronized (evictionLock) {
             cache.put(key, newEntry);
@@ -76,7 +76,7 @@ public class LocalCache<K, V> implements Cache<K, V>, AutoCloseable {
     }
 
     @Override
-    public Optional<V> get(K key) {
+    public Optional<CacheEntry> get(K key) {
         var entry = cache.get(key);
 
         if (entry == null) {
@@ -103,7 +103,7 @@ public class LocalCache<K, V> implements Cache<K, V>, AutoCloseable {
 
             evictionPolicy.onKeyAccessed(key);
             metrics.recordHit();
-            return Optional.ofNullable(currentEntry.getValue());
+            return Optional.of(currentEntry);
         }
     }
 

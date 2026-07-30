@@ -1,9 +1,9 @@
 package org.cache.protocol.commands;
 
 import org.cache.core.Cache;
-import org.cache.protocol.codec.Codec;
+import org.cache.protocol.codec.ValueCodecRegistry;
 
-public interface CacheCommand<K, V> {
+public interface CacheCommand<K> {
 
-    String process(Cache<K, V> cache, Codec<V> valueCodec);
+    String process(Cache<K> cache, ValueCodecRegistry valueCodecs);
 }

@@ -1,5 +1,6 @@
 package org.cache.network;
 
+import org.cache.network.connection.ClientConnectionHandler;
 import org.cache.protocol.CommandProcessor;
 
 import java.io.IOException;
@@ -11,16 +12,16 @@ import java.util.concurrent.Executors;
 public class TcpCacheServer implements AutoCloseable {
 
     private final int port;
-    private final CommandProcessor<?, ?> commandProcessor;
+    private final CommandProcessor<?> commandProcessor;
     private final ExecutorService executor;
     private ServerSocket serverSocket;
 
-    private final static int NUMBER_OF_THREADS = 16;
+    private static final int THREAD_COUNT = 16;
 
-    public TcpCacheServer(int port, CommandProcessor<?, ?> commandProcessor) {
+    public TcpCacheServer(int port, CommandProcessor<?> commandProcessor) {
         this.port = port;
         this.commandProcessor = commandProcessor;
-        this.executor = Executors.newFixedThreadPool(NUMBER_OF_THREADS);
+        this.executor = Executors.newFixedThreadPool(THREAD_COUNT);
     }
 
     public void start() throws IOException {
