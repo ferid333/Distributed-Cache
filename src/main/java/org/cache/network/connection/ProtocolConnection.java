@@ -8,6 +8,4 @@ public interface ProtocolConnection {
     List<String> readCommand() throws IOException;
 
     void write(String value) throws IOException;
-
-    String send(String value) throws IOException;
 }

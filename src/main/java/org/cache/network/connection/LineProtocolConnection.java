@@ -1,6 +1,7 @@
 package org.cache.network.connection;
 
 import org.cache.protocol.ProtocolConstants;
+import org.cache.protocol.RegexConstants;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -36,19 +37,7 @@ public class LineProtocolConnection implements ProtocolConnection, AutoCloseable
             return List.of();
         }
 
-        return List.of(line.trim().split("\\s+"));
-    }
-
-    @Override
-    public String send(String line) throws IOException {
-        write(line);
-        String response = readLine();
-
-        if (response == null) {
-            throw new IOException("Connection closed");
-        }
-
-        return response;
+        return List.of(line.trim().split(RegexConstants.WHITESPACE));
     }
 
     public String readLine() throws IOException {

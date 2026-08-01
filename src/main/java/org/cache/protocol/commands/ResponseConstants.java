@@ -7,5 +7,6 @@ public enum ResponseConstants {
     NOT_FOUND,
     VALUE,
     SIZE,
-    METRICS;
+    METRICS,
+    LIST;
 }
