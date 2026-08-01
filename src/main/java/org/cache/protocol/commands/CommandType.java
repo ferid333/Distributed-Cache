@@ -8,5 +8,6 @@ public enum CommandType {
     CLEAR,
     METRICS,
     PUSH,
+    LRANGE,
     UNKNOWN
 }

@@ -2,11 +2,13 @@ package org.cache.protocol.commands;
 
 import org.cache.core.Cache;
 import org.cache.core.CacheEntry;
+import org.cache.core.ValueType;
 import org.cache.protocol.codec.ValueCodec;
 import org.cache.protocol.codec.ValueCodecRegistry;
 
 import java.util.Optional;
 
+import static org.cache.protocol.commands.ResponseConstants.ERROR;
 import static org.cache.protocol.commands.ResponseConstants.NOT_FOUND;
 import static org.cache.protocol.commands.ResponseConstants.VALUE;
 
@@ -27,6 +29,10 @@ public class GetCommand<K> implements CacheCommand<K> {
         }
 
         CacheEntry cacheEntry = entry.get();
+        if (cacheEntry.getType() != ValueType.STRING) {
+            return ERROR.name() + " key contains " + cacheEntry.getType().name().toLowerCase() + " value";
+        }
+
         ValueCodec<?> codec = valueCodecs.get(cacheEntry.getType());
         return VALUE.name() + " " + codec.toString(cacheEntry.getValue());
     }

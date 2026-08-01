@@ -6,14 +6,19 @@ import java.io.OutputStream;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.cache.protocol.ProtocolConstants.*;
+import static org.cache.protocol.RegexConstants.COMMA_WITH_OPTIONAL_WHITESPACE;
+import static org.cache.protocol.RegexConstants.KEY_VALUE_SEPARATOR;
+import static org.cache.protocol.RegexConstants.SPACE;
+import static org.cache.protocol.RegexConstants.WHITESPACE;
 import static org.cache.protocol.commands.ResponseConstants.ERROR;
+import static org.cache.protocol.commands.ResponseConstants.LIST;
 import static org.cache.protocol.commands.ResponseConstants.METRICS;
-import static org.cache.protocol.commands.ResponseConstants.NOT_FOUND;
-import static org.cache.protocol.commands.ResponseConstants.OK;
 import static org.cache.protocol.commands.ResponseConstants.SIZE;
 import static org.cache.protocol.commands.ResponseConstants.VALUE;
 
@@ -62,16 +67,6 @@ public class RespConnection implements ProtocolConnection, AutoCloseable {
         writeArray(responseParts(value));
     }
 
-    @Override
-    public String send(String value) throws IOException {
-        return sendCommand(List.of(value.trim().split("\\s+")));
-    }
-
-    public String sendCommand(List<String> commandParts) throws IOException {
-        List<String> response = sendCommandForResponse(commandParts);
-        return String.join(" ", response);
-    }
-
     public List<String> sendCommandForResponse(List<String> commandParts) throws IOException {
         writeArray(commandParts);
         List<String> response = readResponse();
@@ -96,16 +91,6 @@ public class RespConnection implements ProtocolConnection, AutoCloseable {
         output.flush();
     }
 
-    private String readString() throws IOException {
-        List<String> response = readResponse();
-
-        if (response == null) {
-            return null;
-        }
-
-        return String.join(" ", response);
-    }
-
     private List<String> readResponse() throws IOException {
         int type = input.read();
 
@@ -117,7 +102,7 @@ public class RespConnection implements ProtocolConnection, AutoCloseable {
             case ARRAY_PREFIX -> readArrayAfterType();
             case SIMPLE_STRING_PREFIX, INTEGER_PREFIX -> List.of(lines.readLine());
             case ERROR_PREFIX -> List.of(ERROR.name(), lines.readLine());
-            case BULK_STRING_PREFIX -> List.of(readBulkStringAfterType());
+            case BULK_STRING_PREFIX -> List.of(Objects.requireNonNull(readBulkStringAfterType()));
             default -> throw new IOException("Unsupported RESP response type: " + (char) type);
         };
     }
@@ -177,27 +162,38 @@ public class RespConnection implements ProtocolConnection, AutoCloseable {
     }
 
     private List<String> responseParts(String response) {
-        if (response.equals(OK.name()) || response.equals(NOT_FOUND.name())) {
-            return List.of(response);
+        if (response == null || response.isEmpty()) {
+            return List.of();
         }
 
-        if (response.startsWith(ERROR.name() + " ")) {
-            return List.of(ERROR.name(), response.substring((ERROR.name() + " ").length()));
+        String[] parts = response.split(SPACE, 2);
+        String prefix = parts[0];
+
+        if (parts.length == 2) {
+            if (prefix.equals(METRICS.name())) {
+                return metricParts(response);
+            }
+            if (prefix.equals(LIST.name())) {
+                return listParts(parts[1]);
+            }
+            if (Set.of(ERROR.name(), VALUE.name(), SIZE.name()).contains(prefix)) {
+                return List.of(prefix, parts[1]);
+            }
         }
 
-        if (response.startsWith(VALUE.name() + " ")) {
-            return List.of(VALUE.name(), response.substring((VALUE.name() + " ").length()));
-        }
-
-        if (response.startsWith(SIZE.name() + " ")) {
-            return List.of(SIZE.name(), response.substring((SIZE.name() + " ").length()));
-        }
-
-        if (response.startsWith(METRICS.name() + " ")) {
-            return metricParts(response);
+        if (prefix.equals(LIST.name())) {
+            return List.of();
         }
 
         return List.of(response);
+    }
+
+    private List<String> listParts(String value) {
+        if (value.isBlank()) {
+            return List.of();
+        }
+
+        return List.of(value.split(COMMA_WITH_OPTIONAL_WHITESPACE));
     }
 
     private List<String> metricParts(String response) {
@@ -205,8 +201,8 @@ public class RespConnection implements ProtocolConnection, AutoCloseable {
         parts.add(METRICS.name());
 
         String metrics = response.substring((METRICS.name() + " ").length());
-        for (String metric : metrics.split("\\s+")) {
-            String[] nameAndValue = metric.split("=", 2);
+        for (String metric : metrics.split(WHITESPACE)) {
+            String[] nameAndValue = metric.split(KEY_VALUE_SEPARATOR, 2);
             if (nameAndValue.length == 2) {
                 parts.add(nameAndValue[0]);
                 parts.add(nameAndValue[1]);

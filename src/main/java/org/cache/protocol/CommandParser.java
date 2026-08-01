@@ -14,11 +14,16 @@ public class CommandParser<K> {
     private static final int KEY_COMMAND_PARTS = 2;
     private static final int VALUE_COMMAND_PARTS = 3;
     private static final int TTL_COMMAND_PARTS = 4;
+    private static final int RANGE_TO_COMMAND_PARTS = 3;
+    private static final int RANGE_FROM_TO_COMMAND_PARTS = 4;
 
     private static final int COMMAND_INDEX = 0;
     private static final int KEY_INDEX = 1;
     private static final int VALUE_INDEX = 2;
     private static final int TTL_INDEX = 3;
+    private static final int FROM_INDEX = 2;
+    private static final int TO_INDEX = 3;
+    private static final int DEFAULT_FROM_INDEX = 0;
 
     public CommandParser(KeyCodec<K> keyCodec) {
         this.keyCodec = keyCodec;
@@ -39,6 +44,7 @@ public class CommandParser<K> {
                 case CLEAR -> parseClear(parts);
                 case METRICS -> parseMetrics(parts);
                 case PUSH -> parsePush(parts);
+                case LRANGE -> parseLrange(parts);
                 case UNKNOWN -> new UnknownCommand<>();
             };
         } catch (IllegalArgumentException exception) {
@@ -84,6 +90,29 @@ public class CommandParser<K> {
         }
 
         return new GetCommand<>(keyCodec.decode(parts.get(KEY_INDEX)));
+    }
+
+    private CacheCommand<K> parseLrange(List<String> parts) {
+        if (parts.size() != RANGE_TO_COMMAND_PARTS && parts.size() != RANGE_FROM_TO_COMMAND_PARTS) {
+            return new InvalidCommand<>("usage: LRANGE key [from] to");
+        }
+
+        try {
+            int from = parts.size() == RANGE_FROM_TO_COMMAND_PARTS
+                    ? Integer.parseInt(parts.get(FROM_INDEX))
+                    : DEFAULT_FROM_INDEX;
+            int to = parts.size() == RANGE_FROM_TO_COMMAND_PARTS
+                    ? Integer.parseInt(parts.get(TO_INDEX))
+                    : Integer.parseInt(parts.get(FROM_INDEX));
+
+            return new LrangeCommand<>(
+                    keyCodec.decode(parts.get(KEY_INDEX)),
+                    from,
+                    to
+            );
+        } catch (NumberFormatException exception) {
+            return new InvalidCommand<>("range indexes must be numbers");
+        }
     }
 
     private CacheCommand<K> parseDelete(List<String> parts) {

@@ -19,14 +19,7 @@ public class ClientConnectionHandler implements Runnable {
     @Override
     public void run() {
         try (socket) {
-            var connectionFactory = new ProtocolConnectionFactory(socket);
-            var connection = connectionFactory.create();
-
-            if (connection.isEmpty()) {
-                return;
-            }
-
-            var protocolConnection = connection.get();
+            var protocolConnection = new AutoProtocolConnection(socket);
 
             List<String> command;
             while ((command = protocolConnection.readCommand()) != null) {
