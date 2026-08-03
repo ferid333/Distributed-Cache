@@ -9,7 +9,9 @@ import org.cache.protocol.codec.ValueCodecRegistry;
 import java.util.List;
 import java.util.Optional;
 
-import static org.cache.protocol.commands.ResponseConstants.*;
+import static org.cache.protocol.commands.ResponseConstants.ERROR;
+import static org.cache.protocol.commands.ResponseConstants.LIST;
+import static org.cache.protocol.commands.ResponseConstants.NOT_FOUND;
 
 public class LrangeCommand<K> implements CacheCommand<K> {
 
