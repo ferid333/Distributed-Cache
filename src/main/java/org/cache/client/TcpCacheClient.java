@@ -24,6 +24,7 @@ public class TcpCacheClient<K, V> implements CacheClient<K, V>, AutoCloseable {
     private static final int FIRST_VALUE_INDEX = 1;
     private static final int METRIC_NAME_VALUE_START_INDEX = 1;
     private static final int METRIC_NAME_VALUE_PAIR_SIZE = 2;
+    private static final int DEFAULT_LRANGE_FROM_INDEX = 0;
 
     private final RespConnection connection;
     private final KeyCodec<K> keyCodec;
@@ -43,6 +44,12 @@ public class TcpCacheClient<K, V> implements CacheClient<K, V>, AutoCloseable {
         } catch (IOException exception) {
             throw new CacheClientException("failed to connect to cache server", exception);
         }
+    }
+
+    TcpCacheClient(RespConnection connection, KeyCodec<K> keyCodec, Serializer<V> valueSerializer) {
+        this.connection = connection;
+        this.keyCodec = keyCodec;
+        this.valueSerializer = valueSerializer;
     }
 
     @Override
@@ -125,6 +132,34 @@ public class TcpCacheClient<K, V> implements CacheClient<K, V>, AutoCloseable {
     @Override
     public void clear() {
         expectOk(List.of("CLEAR"));
+    }
+
+    @Override
+    public void push(K key, V value) {
+        expectOk(List.of("PUSH", keyCodec.encode(key), valueSerializer.encode(value)));
+    }
+
+    @Override
+    public List<V> lrange(K key, int to) {
+        return lrange(key, DEFAULT_LRANGE_FROM_INDEX, to);
+    }
+
+    @Override
+    public List<V> lrange(K key, int from, int to) {
+        List<String> response = send(List.of(
+                "LRANGE",
+                keyCodec.encode(key),
+                Integer.toString(from),
+                Integer.toString(to)
+        ));
+
+        if (isResponse(response, ResponseConstants.NOT_FOUND.name(), SINGLE_PART_RESPONSE_SIZE)) {
+            return List.of();
+        }
+
+        return response.stream()
+                .map(valueSerializer::decode)
+                .toList();
     }
 
     @Override

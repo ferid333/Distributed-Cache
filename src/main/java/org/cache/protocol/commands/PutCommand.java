@@ -5,8 +5,6 @@ import org.cache.core.ValueType;
 import org.cache.protocol.codec.ValueCodec;
 import org.cache.protocol.codec.ValueCodecRegistry;
 
-import java.util.Arrays;
-
 import static org.cache.protocol.commands.ResponseConstants.OK;
 
 public class PutCommand<K> implements CacheCommand<K> {

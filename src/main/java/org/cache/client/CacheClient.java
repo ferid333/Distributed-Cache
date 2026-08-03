@@ -2,6 +2,7 @@ package org.cache.client;
 
 import org.cache.core.metrics.Snapshot;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface CacheClient<K, V> {
@@ -19,4 +20,10 @@ public interface CacheClient<K, V> {
     int size();
 
     void clear();
+
+    void push(K key, V value);
+
+    List<V> lrange(K key, int to);
+
+    List<V> lrange(K key, int from, int to);
 }

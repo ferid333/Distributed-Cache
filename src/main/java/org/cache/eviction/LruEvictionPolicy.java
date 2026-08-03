@@ -46,7 +46,9 @@ public class LruEvictionPolicy<K> implements EvictionPolicy<K> {
     @Override
     public synchronized void onKeyRemoved(K key) {
         var removedNode = keyMap.get(key);
-        if (removedNode == null) return;
+        if (removedNode == null) {
+            return;
+        }
 
         var prevNode = removedNode.prev;
         var nextNode = removedNode.next;
