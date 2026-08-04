@@ -1,0 +1,95 @@
+name: PR Title Check
+
+on:
+  pull_request_target:
+    branches:
+      - master
+      - develop
+    types:
+      - opened
+      - edited
+      - reopened
+      - synchronize
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  validate-title:
+    name: Comment PR title result
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate PR title
+        id: validate-pr-title
+        env:
+          BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          result=success
+          message="PR title check passed."
+
+          if [[ "$BASE_BRANCH" == "develop" && ! "$PR_TITLE" =~ ^DVLP ]]; then
+            result=failure
+            message="PR title must start with DVLP when targeting develop. Target branch: $BASE_BRANCH. Actual title: $PR_TITLE."
+          fi
+
+          title_length=${#PR_TITLE}
+          if (( title_length > 120 )); then
+            result=failure
+            message="PR title must not be longer than 120 characters. Actual length: $title_length."
+          fi
+
+          echo "$message"
+          echo "result=$result" >> "$GITHUB_OUTPUT"
+          echo "message=$message" >> "$GITHUB_OUTPUT"
+
+      - name: Add Comment
+        uses: actions/github-script@v9
+        env:
+          PR_TITLE_CHECK_RESULT: ${{ steps.validate-pr-title.outputs.result }}
+          PR_TITLE_CHECK_MESSAGE: ${{ steps.validate-pr-title.outputs.message }}
+        with:
+          script: |
+            const marker = '<!-- pr-title-check -->';
+            const body = [
+              marker,
+              `PR title check: \`${process.env.PR_TITLE_CHECK_RESULT}\``,
+              '',
+              process.env.PR_TITLE_CHECK_MESSAGE
+            ].join('\n');
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number,
+              per_page: 100
+            });
+
+            const existing = comments.find((comment) =>
+              comment.user.type === 'Bot' && comment.body.includes(marker)
+            );
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: existing.id,
+                body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number,
+                body
+              });
+            }
+
+      - name: Fail when PR title is invalid
+        if: steps.validate-pr-title.outputs.result == 'failure'
+        run: exit 1
