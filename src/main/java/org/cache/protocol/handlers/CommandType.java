@@ -1,4 +1,4 @@
-package org.cache.protocol.commands;
+package org.cache.protocol.handlers;
 
 public enum CommandType {
     PUT,

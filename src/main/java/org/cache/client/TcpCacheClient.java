@@ -4,7 +4,7 @@ import org.cache.client.serializer.Serializer;
 import org.cache.core.metrics.Snapshot;
 import org.cache.network.connection.RespConnection;
 import org.cache.protocol.codec.KeyCodec;
-import org.cache.protocol.commands.ResponseConstants;
+import org.cache.protocol.handlers.ResponseConstants;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -12,8 +12,8 @@ import java.net.Socket;
 import java.util.List;
 import java.util.Optional;
 
-import static org.cache.protocol.commands.ResponseConstants.ERROR;
-import static org.cache.protocol.commands.ResponseConstants.OK;
+import static org.cache.protocol.handlers.ResponseConstants.ERROR;
+import static org.cache.protocol.handlers.ResponseConstants.OK;
 
 public class TcpCacheClient<K, V> implements CacheClient<K, V>, AutoCloseable {
 

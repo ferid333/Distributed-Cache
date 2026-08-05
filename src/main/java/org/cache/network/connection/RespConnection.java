@@ -23,11 +23,11 @@ import static org.cache.protocol.RegexConstants.COMMA_WITH_OPTIONAL_WHITESPACE;
 import static org.cache.protocol.RegexConstants.KEY_VALUE_SEPARATOR;
 import static org.cache.protocol.RegexConstants.SPACE;
 import static org.cache.protocol.RegexConstants.WHITESPACE;
-import static org.cache.protocol.commands.ResponseConstants.ERROR;
-import static org.cache.protocol.commands.ResponseConstants.LIST;
-import static org.cache.protocol.commands.ResponseConstants.METRICS;
-import static org.cache.protocol.commands.ResponseConstants.SIZE;
-import static org.cache.protocol.commands.ResponseConstants.VALUE;
+import static org.cache.protocol.handlers.ResponseConstants.ERROR;
+import static org.cache.protocol.handlers.ResponseConstants.LIST;
+import static org.cache.protocol.handlers.ResponseConstants.METRICS;
+import static org.cache.protocol.handlers.ResponseConstants.SIZE;
+import static org.cache.protocol.handlers.ResponseConstants.VALUE;
 
 public class RespConnection implements ProtocolConnection, AutoCloseable {
 

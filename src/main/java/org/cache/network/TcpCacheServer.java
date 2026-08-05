@@ -9,7 +9,7 @@ public class TcpCacheServer implements AutoCloseable {
 
     private final ExecutorService executor;
     private final ClientConnectionHandlerFactory handlerFactory;
-    private ServerSocket serverSocket;
+    private final ServerSocket serverSocket;
 
     public TcpCacheServer(
             ServerSocket serverSocket,
