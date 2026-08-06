@@ -1,4 +1,4 @@
-package org.cache.network.connection;
+package org.cache.network.tcp.connection;
 
 import org.cache.protocol.CommandProcessor;
 

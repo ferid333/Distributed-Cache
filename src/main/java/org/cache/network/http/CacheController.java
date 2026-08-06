@@ -18,8 +18,10 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestMapping;
 
 @RestController
+@RequestMapping("/cache")
 public class CacheController {
 
     private final CacheService<String> cacheService;
@@ -28,13 +30,13 @@ public class CacheController {
         this.cacheService = cacheService;
     }
 
-    @PutMapping("/cache/{key}")
+    @PutMapping("/{key}")
     public ResponseEntity<Void> put(@PathVariable String key, @RequestBody ValueRequestDto request) {
         cacheService.putString(key, request.value(), ttlMillis(request));
         return ResponseEntity.noContent().build();
     }
 
-    @GetMapping("/cache/{key}")
+    @GetMapping("/{key}")
     public ResponseEntity<GetResponseDto> get(@PathVariable String key) {
         try {
             return cacheService.getString(key)
@@ -45,24 +47,24 @@ public class CacheController {
         }
     }
 
-    @DeleteMapping("/cache/{key}")
+    @DeleteMapping("/{key}")
     public ResponseEntity<Void> delete(@PathVariable String key) {
         cacheService.delete(key);
         return ResponseEntity.noContent().build();
     }
 
-    @DeleteMapping("/cache")
+    @DeleteMapping
     public ResponseEntity<Void> clear() {
         cacheService.clear();
         return ResponseEntity.noContent().build();
     }
 
-    @GetMapping("/cache/size")
+    @GetMapping("/size")
     public ResponseEntity<SizeResponseDto> size() {
         return ResponseEntity.ok(new SizeResponseDto(cacheService.size()));
     }
 
-    @GetMapping("/cache/metrics")
+    @GetMapping("/metrics")
     public ResponseEntity<MetricsResponseDto> metrics() {
         Snapshot snapshot = cacheService.metrics();
         return ResponseEntity.ok(new MetricsResponseDto(
@@ -74,7 +76,7 @@ public class CacheController {
         ));
     }
 
-    @PostMapping("/cache/{key}/list")
+    @PostMapping("/{key}/list")
     public ResponseEntity<Void> push(@PathVariable String key, @RequestBody ValueRequestDto request) {
         try {
             cacheService.push(key, request.value());
@@ -84,7 +86,7 @@ public class CacheController {
         }
     }
 
-    @GetMapping("/cache/{key}/list")
+    @GetMapping("/{key}/list")
     public ResponseEntity<ListResponseDto> lrange(
             @PathVariable String key,
             @RequestParam(defaultValue = "0") int from,

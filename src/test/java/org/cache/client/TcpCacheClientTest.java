@@ -2,7 +2,7 @@ package org.cache.client;
 
 import org.cache.client.serializer.StringSerializer;
 import org.cache.core.metrics.Snapshot;
-import org.cache.network.connection.RespConnection;
+import org.cache.network.tcp.connection.RespConnection;
 import org.cache.protocol.codec.StringKeyCodec;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

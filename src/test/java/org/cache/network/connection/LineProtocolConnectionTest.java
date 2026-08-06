@@ -1,5 +1,6 @@
 package org.cache.network.connection;
 
+import org.cache.network.tcp.connection.LineProtocolConnection;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 

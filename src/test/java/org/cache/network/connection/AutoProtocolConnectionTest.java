@@ -1,5 +1,6 @@
 package org.cache.network.connection;
 
+import org.cache.network.tcp.connection.AutoProtocolConnection;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
