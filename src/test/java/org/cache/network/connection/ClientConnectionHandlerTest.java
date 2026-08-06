@@ -1,5 +1,6 @@
 package org.cache.network.connection;
 
+import org.cache.network.tcp.connection.ClientConnectionHandler;
 import org.cache.protocol.CommandProcessor;
 import org.junit.jupiter.api.Test;
 

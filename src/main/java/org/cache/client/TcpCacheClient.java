@@ -2,7 +2,7 @@ package org.cache.client;
 
 import org.cache.client.serializer.Serializer;
 import org.cache.core.metrics.Snapshot;
-import org.cache.network.connection.RespConnection;
+import org.cache.network.tcp.connection.RespConnection;
 import org.cache.protocol.codec.KeyCodec;
 import org.cache.protocol.handlers.ResponseConstants;
 
