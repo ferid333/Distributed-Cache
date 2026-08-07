@@ -2,6 +2,7 @@ package org.cache.protocol.handlers;
 
 import org.cache.protocol.codec.KeyCodec;
 import org.cache.core.CacheService;
+import org.cache.protocol.codec.KeyCodecException;
 
 import java.util.List;
 
@@ -41,6 +42,8 @@ public class LrangeHandler<K> implements CommandHandler {
                     .orElse(ResponseConstants.NOT_FOUND.name());
         } catch (NumberFormatException exception) {
             return TcpResponseSupport.error("range indexes must be numbers");
+        } catch (KeyCodecException exception) {
+            return TcpResponseSupport.invalidKey(exception);
         } catch (IllegalArgumentException exception) {
             return TcpResponseSupport.error("invalid range: from must be >= 0 and to must be >= from");
         } catch (WrongValueTypeException exception) {

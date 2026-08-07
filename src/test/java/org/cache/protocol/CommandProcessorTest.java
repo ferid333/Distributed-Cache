@@ -4,6 +4,7 @@ import org.cache.core.LocalCache;
 import org.cache.core.ValueType;
 import org.cache.eviction.LruEvictionPolicy;
 import org.cache.protocol.codec.ListValueCodec;
+import org.cache.protocol.codec.IntegerKeyCodec;
 import org.cache.protocol.codec.StringKeyCodec;
 import org.cache.protocol.codec.StringValueCodec;
 import org.cache.protocol.codec.ValueCodecRegistry;
@@ -134,6 +135,20 @@ class CommandProcessorTest {
             CommandProcessor<String> processor = processor(cache);
 
             assertEquals("ERROR unknown command", processor.process(List.of("NOPE")));
+        }
+    }
+
+    @Test
+    void processReturnsInvalidKeyErrorForConfiguredIntegerKeys() {
+        try (var cache = new LocalCache<Integer>(10, new LruEvictionPolicy<>())) {
+            CommandProcessor<Integer> processor = new CommandProcessor<>(
+                    new IntegerKeyCodec(),
+                    new CacheService<>(cache, valueCodecs())
+            );
+
+            assertEquals("ERROR key must be an integer: fruit", processor.process(List.of("PUT", "fruit", "apple")));
+            assertEquals("OK", processor.process(List.of("PUT", "42", "apple")));
+            assertEquals("VALUE apple", processor.process(List.of("GET", "42")));
         }
     }
 

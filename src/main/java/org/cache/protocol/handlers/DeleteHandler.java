@@ -2,6 +2,7 @@ package org.cache.protocol.handlers;
 
 import org.cache.protocol.codec.KeyCodec;
 import org.cache.core.CacheService;
+import org.cache.protocol.codec.KeyCodecException;
 
 import java.util.List;
 
@@ -24,7 +25,11 @@ public class DeleteHandler<K> implements CommandHandler {
             return TcpResponseSupport.error("usage: DELETE key");
         }
 
-        cacheService.delete(keyCodec.decode(parts.get(KEY_INDEX)));
-        return ResponseConstants.OK.name();
+        try {
+            cacheService.delete(keyCodec.decode(parts.get(KEY_INDEX)));
+            return ResponseConstants.OK.name();
+        } catch (KeyCodecException exception) {
+            return TcpResponseSupport.invalidKey(exception);
+        }
     }
 }

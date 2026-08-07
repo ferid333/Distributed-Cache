@@ -2,6 +2,7 @@ package org.cache.protocol.handlers;
 
 import org.cache.protocol.codec.KeyCodec;
 import org.cache.core.CacheService;
+import org.cache.protocol.codec.KeyCodecException;
 
 import java.util.List;
 
@@ -30,6 +31,8 @@ public class PushHandler<K> implements CommandHandler {
             return ResponseConstants.OK.name();
         } catch (WrongValueTypeException exception) {
             return TcpResponseSupport.wrongType(exception);
+        } catch (KeyCodecException exception) {
+            return TcpResponseSupport.invalidKey(exception);
         }
     }
 }
