@@ -1,39 +1,75 @@
 package org.cache;
 
+import org.cache.cluster.CacheNode;
+import org.cache.config.CacheConfig;
+import org.cache.config.LoadConfiguration;
 import org.cache.core.Cache;
 import org.cache.core.CacheService;
 import org.cache.core.LocalCache;
 import org.cache.core.ValueType;
-import org.cache.eviction.LruEvictionPolicy;
+import org.cache.eviction.EvictionPolicy;
 import org.cache.network.tcp.TcpCacheServer;
 import org.cache.network.tcp.connection.ClientConnectionHandler;
 import org.cache.protocol.CommandProcessor;
+import org.cache.protocol.codec.KeyCodec;
 import org.cache.protocol.codec.ListValueCodec;
-import org.cache.protocol.codec.StringKeyCodec;
 import org.cache.protocol.codec.StringValueCodec;
 import org.cache.protocol.codec.ValueCodecRegistry;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 
 import java.io.IOException;
 import java.net.ServerSocket;
+import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ExecutorService;
 
 @SpringBootApplication
 public class Main {
     private static final int SERVER_THREAD_COUNT = 16;
-    private static final int DEFAULT_CACHE_CAPACITY = 1_000;
+    private static CacheConfig configuredCacheConfig;
 
     public static void main(String[] args) {
-        SpringApplication.run(Main.class, args);
+        configuredCacheConfig = loadConfiguration();
+        var app = new SpringApplication(Main.class);
+        app.setDefaultProperties(Map.of(
+                "server.port", configuredCacheConfig.cacheNode().httpPort()
+        ));
+        app.run(args);
+    }
+
+    private static CacheConfig loadConfiguration() {
+        return new LoadConfiguration().load();
+    }
+
+    @Bean
+    public CacheConfig cacheConfig() {
+        if (configuredCacheConfig == null) {
+            configuredCacheConfig = loadConfiguration();
+        }
+
+        return configuredCacheConfig;
     }
 
     @Bean(destroyMethod = "close")
-    public LocalCache<String> cache() {
-        return new LocalCache<>(DEFAULT_CACHE_CAPACITY, new LruEvictionPolicy<>());
+    public LocalCache<Object> cache(CacheConfig cacheConfig, EvictionPolicy<Object> evictionPolicy) {
+        return new LocalCache<>(cacheConfig.capacity(), evictionPolicy);
+    }
+
+    @Bean
+    public CacheNode cacheNode(CacheConfig cacheConfig) {
+        return cacheConfig.cacheNode();
+    }
+
+    @Bean
+    public KeyCodec<?> keyCodec(CacheConfig cacheConfig) {
+        return cacheConfig.keyCodec();
+    }
+
+    @Bean
+    public EvictionPolicy<?> evictionPolicy(CacheConfig cacheConfig) {
+        return cacheConfig.evictionPolicy();
     }
 
     @Bean
@@ -44,13 +80,13 @@ public class Main {
     }
 
     @Bean
-    public CacheService<String> cacheService(Cache<String> cache, ValueCodecRegistry valueCodecs) {
+    public CacheService<Object> cacheService(Cache<Object> cache, ValueCodecRegistry valueCodecs) {
         return new CacheService<>(cache, valueCodecs);
     }
 
     @Bean
-    public CommandProcessor<String> commandProcessor(CacheService<String> cacheService) {
-        return new CommandProcessor<>(new StringKeyCodec(), cacheService);
+    public CommandProcessor<Object> commandProcessor(KeyCodec<Object> keyCodec, CacheService<Object> cacheService) {
+        return new CommandProcessor<>(keyCodec, cacheService);
     }
 
     @Bean(destroyMethod = "shutdownNow")
@@ -60,12 +96,12 @@ public class Main {
 
     @Bean
     public TcpCacheServer tcpCacheServer(
-            @Value("${cache.tcp.port:2020}") int port,
+            CacheNode cacheNode,
             ExecutorService tcpClientExecutor,
-            CommandProcessor<String> commandProcessor
+            CommandProcessor<Object> commandProcessor
     ) throws IOException {
         return new TcpCacheServer(
-                new ServerSocket(port),
+                new ServerSocket(cacheNode.tcpPort()),
                 tcpClientExecutor,
                 socket -> new ClientConnectionHandler(socket, commandProcessor)
         );

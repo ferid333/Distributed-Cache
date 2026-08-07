@@ -1,6 +1,0 @@
-server:
-  port: 8080
-
-cache:
-  tcp:
-    port: 2020
