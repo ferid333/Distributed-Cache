@@ -7,6 +7,7 @@ import org.cache.network.http.dto.ListResponseDto;
 import org.cache.network.http.dto.MetricsResponseDto;
 import org.cache.network.http.dto.SizeResponseDto;
 import org.cache.network.http.dto.ValueRequestDto;
+import org.cache.protocol.codec.KeyCodec;
 import org.cache.protocol.handlers.WrongValueTypeException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,24 +25,32 @@ import org.springframework.web.bind.annotation.RequestMapping;
 @RequestMapping("/cache")
 public class CacheController {
 
-    private final CacheService<String> cacheService;
+    private final CacheService<Object> cacheService;
+    private final KeyCodec<Object> keyCodec;
 
-    public CacheController(CacheService<String> cacheService) {
+    public CacheController(CacheService<Object> cacheService, KeyCodec<Object> keyCodec) {
         this.cacheService = cacheService;
+        this.keyCodec = keyCodec;
     }
 
     @PutMapping("/{key}")
     public ResponseEntity<Void> put(@PathVariable String key, @RequestBody ValueRequestDto request) {
-        cacheService.putString(key, request.value(), ttlMillis(request));
-        return ResponseEntity.noContent().build();
+        try {
+            cacheService.putString(decodeKey(key), request.value(), ttlMillis(request));
+            return ResponseEntity.noContent().build();
+        } catch (IllegalArgumentException exception) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 
     @GetMapping("/{key}")
     public ResponseEntity<GetResponseDto> get(@PathVariable String key) {
         try {
-            return cacheService.getString(key)
+            return cacheService.getString(decodeKey(key))
                     .map(value -> ResponseEntity.ok(new GetResponseDto(value)))
                     .orElseGet(() -> ResponseEntity.notFound().build());
+        } catch (IllegalArgumentException exception) {
+            return ResponseEntity.badRequest().build();
         } catch (WrongValueTypeException exception) {
             return ResponseEntity.status(HttpStatus.CONFLICT).build();
         }
@@ -49,8 +58,12 @@ public class CacheController {
 
     @DeleteMapping("/{key}")
     public ResponseEntity<Void> delete(@PathVariable String key) {
-        cacheService.delete(key);
-        return ResponseEntity.noContent().build();
+        try {
+            cacheService.delete(decodeKey(key));
+            return ResponseEntity.noContent().build();
+        } catch (IllegalArgumentException exception) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 
     @DeleteMapping
@@ -79,8 +92,10 @@ public class CacheController {
     @PostMapping("/{key}/list")
     public ResponseEntity<Void> push(@PathVariable String key, @RequestBody ValueRequestDto request) {
         try {
-            cacheService.push(key, request.value());
+            cacheService.push(decodeKey(key), request.value());
             return ResponseEntity.noContent().build();
+        } catch (IllegalArgumentException exception) {
+            return ResponseEntity.badRequest().build();
         } catch (WrongValueTypeException exception) {
             return ResponseEntity.status(HttpStatus.CONFLICT).build();
         }
@@ -93,7 +108,7 @@ public class CacheController {
             @RequestParam int to
     ) {
         try {
-            return cacheService.lrange(key, from, to)
+            return cacheService.lrange(decodeKey(key), from, to)
                     .map(values -> ResponseEntity.ok(new ListResponseDto(values)))
                     .orElseGet(() -> ResponseEntity.notFound().build());
         } catch (IllegalArgumentException exception) {
@@ -105,5 +120,9 @@ public class CacheController {
 
     private long ttlMillis(ValueRequestDto request) {
         return request.ttlMillis() == null ? 0 : request.ttlMillis();
+    }
+
+    private Object decodeKey(String key) {
+        return keyCodec.decode(key);
     }
 }

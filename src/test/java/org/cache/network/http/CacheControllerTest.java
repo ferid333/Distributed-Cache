@@ -8,6 +8,8 @@ import org.cache.network.http.dto.ListResponseDto;
 import org.cache.network.http.dto.MetricsResponseDto;
 import org.cache.network.http.dto.SizeResponseDto;
 import org.cache.network.http.dto.ValueRequestDto;
+import org.cache.protocol.codec.KeyCodec;
+import org.cache.protocol.codec.StringKeyCodec;
 import org.cache.protocol.handlers.WrongValueTypeException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,13 +27,14 @@ import static org.mockito.Mockito.when;
 
 class CacheControllerTest {
 
-    private CacheService<String> cacheService;
+    private CacheService<Object> cacheService;
     private CacheController controller;
 
     @BeforeEach
+    @SuppressWarnings("unchecked")
     void setUp() {
         cacheService = mock(CacheService.class);
-        controller = new CacheController(cacheService);
+        controller = new CacheController(cacheService, (KeyCodec<Object>) (KeyCodec<?>) new StringKeyCodec());
     }
 
     @Test

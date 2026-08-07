@@ -6,14 +6,14 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class MruEvictionPolicy<K> implements EvictionPolicy<K> {
 
-    private final Node<K> right;
-    private final Node<K> left;
-    private final Map<K, Node<K>> keyMap;
+    private final KeyNode<K> right;
+    private final KeyNode<K> left;
+    private final Map<K, KeyNode<K>> keyMap;
 
     public MruEvictionPolicy() {
         this.keyMap = new ConcurrentHashMap<>();
-        this.right = new Node<>(null);
-        this.left = new Node<>(null);
+        this.right = new KeyNode<>(null);
+        this.left = new KeyNode<>(null);
 
         right.prev = left;
         left.next = right;
@@ -26,7 +26,7 @@ public class MruEvictionPolicy<K> implements EvictionPolicy<K> {
             onKeyRemoved(key);
         }
 
-        var newNode = new Node<>(key);
+        var newNode = new KeyNode<>(key);
         var prevNode = right.prev;
 
         prevNode.next = newNode;

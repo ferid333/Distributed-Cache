@@ -1,0 +1,11 @@
+capacity: 100
+defaultTtlMillis: 0
+eviction-policy: lru
+key-type: int
+
+node:
+  id: node-a
+  host: localhost
+  http-port: 8080
+  tcp-port: 2020
+  cluster-port: 10001
