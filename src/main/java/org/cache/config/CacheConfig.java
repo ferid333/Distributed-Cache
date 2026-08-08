@@ -1,6 +1,7 @@
 package org.cache.config;
 
 import org.cache.cluster.CacheNode;
+import org.cache.cluster.ClusterInfo;
 import org.cache.eviction.EvictionPolicy;
 import org.cache.protocol.codec.KeyCodec;
 
@@ -9,6 +10,7 @@ public record CacheConfig(
         long defaultTtlMillis,
         KeyCodec<Object> keyCodec,
         EvictionPolicy<Object> evictionPolicy,
-        CacheNode cacheNode
+        CacheNode cacheNode,
+        ClusterInfo clusterInfo
 ) {
 }

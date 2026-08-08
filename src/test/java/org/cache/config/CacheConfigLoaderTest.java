@@ -8,6 +8,8 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class CacheConfigLoaderTest {
@@ -25,6 +27,7 @@ class CacheConfigLoaderTest {
         assertEquals(8080, config.cacheNode().httpPort());
         assertEquals(2020, config.cacheNode().tcpPort());
         assertEquals(10001, config.cacheNode().clusterPort());
+        assertNull(config.clusterInfo());
     }
 
     @Test
@@ -41,6 +44,66 @@ class CacheConfigLoaderTest {
         assertEquals(18080, config.cacheNode().httpPort());
         assertEquals(12020, config.cacheNode().tcpPort());
         assertEquals(11001, config.cacheNode().clusterPort());
+        assertNull(config.clusterInfo());
+    }
+
+    @Test
+    void loadReadsClusterValuesWhenConfigured() {
+        CacheConfig config = new CacheConfigLoader("config/cluster-config.yml").load();
+
+        assertNotNull(config.clusterInfo());
+        assertEquals(2, config.clusterInfo().replicationFactor());
+        assertEquals(3, config.clusterInfo().nodes().size());
+        assertEquals("node-a", config.clusterInfo().nodes().getFirst().id());
+    }
+
+    @Test
+    void loadUsesDefaultReplicationFactorWhenClusterOmitsIt() {
+        CacheConfig config = new CacheConfigLoader("config/cluster-config-default-replication-factor.yml").load();
+
+        assertNotNull(config.clusterInfo());
+        assertEquals(1, config.clusterInfo().replicationFactor());
+        assertEquals(1, config.clusterInfo().nodes().size());
+    }
+
+    @Test
+    void loadRejectsReplicationFactorLessThanOne() {
+        var exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> new CacheConfigLoader("config/invalid-cluster-replication-factor-too-small.yml").load()
+        );
+
+        assertEquals("Cluster replication factor must be at least 1", exception.getMessage());
+    }
+
+    @Test
+    void loadRejectsReplicationFactorGreaterThanActiveNodes() {
+        var exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> new CacheConfigLoader("config/invalid-cluster-replication-factor-too-large.yml").load()
+        );
+
+        assertEquals("Cluster replication factor must not exceed number of active nodes", exception.getMessage());
+    }
+
+    @Test
+    void loadRejectsDuplicateClusterNodeIds() {
+        var exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> new CacheConfigLoader("config/invalid-cluster-duplicate-node-id.yml").load()
+        );
+
+        assertEquals("Cluster node ids must be unique: node-a", exception.getMessage());
+    }
+
+    @Test
+    void loadRejectsDuplicateClusterHostPorts() {
+        var exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> new CacheConfigLoader("config/invalid-cluster-duplicate-host-port.yml").load()
+        );
+
+        assertEquals("Cluster node host-port combinations must be unique: localhost:2020", exception.getMessage());
     }
 
     @Test
