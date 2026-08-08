@@ -29,6 +29,8 @@ class IntegerKeyCodecTest {
 
     @Test
     void decodeThrowsForNonNumericString() {
-        assertThrows(IllegalArgumentException.class, () -> codec.decode("fruit"));
+        var exception = assertThrows(KeyCodecException.class, () -> codec.decode("fruit"));
+
+        assertEquals("key must be an integer: fruit", exception.getMessage());
     }
 }

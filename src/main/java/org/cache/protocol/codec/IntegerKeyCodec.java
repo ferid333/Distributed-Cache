@@ -20,7 +20,7 @@ public class IntegerKeyCodec implements KeyCodec<Integer> {
         try {
             return Integer.parseInt(value);
         } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Cannot encode non-numeric string: " + value, e);
+            throw new KeyCodecException("key must be an integer: " + value, e);
         }
     }
 }

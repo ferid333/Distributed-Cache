@@ -2,7 +2,7 @@ package org.cache;
 
 import org.cache.cluster.CacheNode;
 import org.cache.config.CacheConfig;
-import org.cache.config.LoadConfiguration;
+import org.cache.config.CacheConfigLoader;
 import org.cache.core.Cache;
 import org.cache.core.CacheService;
 import org.cache.core.LocalCache;
@@ -40,7 +40,8 @@ public class Main {
     }
 
     private static CacheConfig loadConfiguration() {
-        return new LoadConfiguration().load();
+        var cacheLoader = new CacheConfigLoader();
+        return cacheLoader.load();
     }
 
     @Bean
@@ -63,12 +64,12 @@ public class Main {
     }
 
     @Bean
-    public KeyCodec<?> keyCodec(CacheConfig cacheConfig) {
+    public KeyCodec<Object> keyCodec(CacheConfig cacheConfig) {
         return cacheConfig.keyCodec();
     }
 
     @Bean
-    public EvictionPolicy<?> evictionPolicy(CacheConfig cacheConfig) {
+    public EvictionPolicy<Object> evictionPolicy(CacheConfig cacheConfig) {
         return cacheConfig.evictionPolicy();
     }
 

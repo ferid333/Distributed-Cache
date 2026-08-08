@@ -2,6 +2,7 @@ package org.cache.protocol.handlers;
 
 import org.cache.protocol.codec.KeyCodec;
 import org.cache.core.CacheService;
+import org.cache.protocol.codec.KeyCodecException;
 
 import java.util.List;
 
@@ -33,6 +34,8 @@ public class PutHandler<K> implements CommandHandler {
             return ResponseConstants.OK.name();
         } catch (NumberFormatException exception) {
             return TcpResponseSupport.error("ttl must be a number");
+        } catch (KeyCodecException exception) {
+            return TcpResponseSupport.invalidKey(exception);
         }
     }
 }

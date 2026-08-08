@@ -40,12 +40,14 @@ public class CommandProcessor<K> {
             return error("unknown command");
         }
 
+        CommandType type;
         try {
-            CommandType type = CommandType.valueOf(commandParts.getFirst().toUpperCase());
-            return handlers.getOrDefault(type, ignored -> error("unknown command")).handle(commandParts);
+            type = CommandType.valueOf(commandParts.getFirst().toUpperCase());
         } catch (IllegalArgumentException exception) {
             return error("unknown command");
         }
+
+        return handlers.getOrDefault(type, ignored -> error("unknown command")).handle(commandParts);
     }
 
     private String error(String message) {

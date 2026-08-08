@@ -7,8 +7,8 @@ import org.cache.protocol.codec.KeyCodec;
 public record CacheConfig(
         int capacity,
         long defaultTtlMillis,
-        KeyCodec<?> keyCodec,
-        EvictionPolicy<?> evictionPolicy,
+        KeyCodec<Object> keyCodec,
+        EvictionPolicy<Object> evictionPolicy,
         CacheNode cacheNode
 ) {
 }
