@@ -5,11 +5,15 @@ public enum ConfigKey {
     DEFAULT_TTL_MILLIS("defaultTtlMillis"),
     KEY_TYPE("key-type"),
     EVICTION_POLICY("eviction-policy"),
-    NODE_ID("node.id"),
-    NODE_HOST("node.host"),
-    NODE_HTTP_PORT("node.http-port"),
-    NODE_TCP_PORT("node.tcp-port"),
-    NODE_CLUSTER_PORT("node.cluster-port");
+    NODE("node"),
+    CLUSTER("cluster"),
+    NODES("nodes"),
+    ID("id"),
+    HOST("host"),
+    HTTP_PORT("http-port"),
+    TCP_PORT("tcp-port"),
+    CLUSTER_PORT("cluster-port"),
+    REPLICATION_FACTOR("replication-factor");
 
     private final String propertyName;
 
@@ -19,5 +23,15 @@ public enum ConfigKey {
 
     public String getPropertyName() {
         return propertyName;
+    }
+
+    public static String merge(ConfigKey first, ConfigKey... others) {
+        StringBuilder propertyName = new StringBuilder(first.getPropertyName());
+
+        for (ConfigKey key : others) {
+            propertyName.append('.').append(key.getPropertyName());
+        }
+
+        return propertyName.toString();
     }
 }
