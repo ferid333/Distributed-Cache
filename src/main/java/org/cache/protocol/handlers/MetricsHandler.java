@@ -1,7 +1,7 @@
 package org.cache.protocol.handlers;
 
 import org.cache.core.metrics.Snapshot;
-import org.cache.core.CacheService;
+import org.cache.core.CacheOperations;
 
 import java.util.List;
 
@@ -9,9 +9,9 @@ public class MetricsHandler implements CommandHandler {
 
     private static final int COMMAND_PARTS = 1;
 
-    private final CacheService<?> cacheService;
+    private final CacheOperations<?> cacheService;
 
-    public MetricsHandler(CacheService<?> cacheService) {
+    public MetricsHandler(CacheOperations<?> cacheService) {
         this.cacheService = cacheService;
     }
 

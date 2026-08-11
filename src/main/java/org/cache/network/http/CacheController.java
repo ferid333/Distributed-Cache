@@ -1,6 +1,7 @@
 package org.cache.network.http;
 
-import org.cache.core.CacheService;
+import org.cache.cluster.routing.ClusterForwardingException;
+import org.cache.core.CacheOperations;
 import org.cache.core.metrics.Snapshot;
 import org.cache.network.http.dto.GetResponseDto;
 import org.cache.network.http.dto.ListResponseDto;
@@ -17,18 +18,18 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.bind.annotation.RequestMapping;
 
 @RestController
 @RequestMapping("/cache")
 public class CacheController {
 
-    private final CacheService<Object> cacheService;
+    private final CacheOperations<Object> cacheService;
     private final KeyCodec<Object> keyCodec;
 
-    public CacheController(CacheService<Object> cacheService, KeyCodec<Object> keyCodec) {
+    public CacheController(CacheOperations<Object> cacheService, KeyCodec<Object> keyCodec) {
         this.cacheService = cacheService;
         this.keyCodec = keyCodec;
     }
@@ -40,6 +41,8 @@ public class CacheController {
             return ResponseEntity.noContent().build();
         } catch (IllegalArgumentException exception) {
             return ResponseEntity.badRequest().build();
+        } catch (ClusterForwardingException exception) {
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
         }
     }
 
@@ -53,6 +56,8 @@ public class CacheController {
             return ResponseEntity.badRequest().build();
         } catch (WrongValueTypeException exception) {
             return ResponseEntity.status(HttpStatus.CONFLICT).build();
+        } catch (ClusterForwardingException exception) {
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
         }
     }
 
@@ -63,6 +68,8 @@ public class CacheController {
             return ResponseEntity.noContent().build();
         } catch (IllegalArgumentException exception) {
             return ResponseEntity.badRequest().build();
+        } catch (ClusterForwardingException exception) {
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
         }
     }
 
@@ -98,6 +105,8 @@ public class CacheController {
             return ResponseEntity.badRequest().build();
         } catch (WrongValueTypeException exception) {
             return ResponseEntity.status(HttpStatus.CONFLICT).build();
+        } catch (ClusterForwardingException exception) {
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
         }
     }
 
@@ -115,6 +124,8 @@ public class CacheController {
             return ResponseEntity.badRequest().build();
         } catch (WrongValueTypeException exception) {
             return ResponseEntity.status(HttpStatus.CONFLICT).build();
+        } catch (ClusterForwardingException exception) {
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
         }
     }
 

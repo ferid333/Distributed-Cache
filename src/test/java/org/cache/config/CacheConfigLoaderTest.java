@@ -15,6 +15,25 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class CacheConfigLoaderTest {
 
     @Test
+    void loadUsesConfigFileFromSystemProperty() {
+        String previousConfigFile = System.getProperty("cache.config");
+        System.setProperty("cache.config", "config/full-config.yml");
+
+        try {
+            CacheConfig config = new CacheConfigLoader().load();
+
+            assertEquals("node-test", config.cacheNode().id());
+            assertEquals(250, config.capacity());
+        } finally {
+            if (previousConfigFile == null) {
+                System.clearProperty("cache.config");
+            } else {
+                System.setProperty("cache.config", previousConfigFile);
+            }
+        }
+    }
+
+    @Test
     void loadUsesDefaultsWhenConfigFileDoesNotExist() {
         CacheConfig config = new CacheConfigLoader("missing-config.yml").load();
 

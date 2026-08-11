@@ -1,7 +1,7 @@
 package org.cache.protocol.handlers;
 
 import org.cache.protocol.codec.KeyCodec;
-import org.cache.core.CacheService;
+import org.cache.core.CacheOperations;
 import org.cache.protocol.codec.KeyCodecException;
 
 import java.util.List;
@@ -16,9 +16,9 @@ public class LrangeHandler<K> implements CommandHandler {
     private static final int DEFAULT_FROM_INDEX = 0;
 
     private final KeyCodec<K> keyCodec;
-    private final CacheService<K> cacheService;
+    private final CacheOperations<K> cacheService;
 
-    public LrangeHandler(KeyCodec<K> keyCodec, CacheService<K> cacheService) {
+    public LrangeHandler(KeyCodec<K> keyCodec, CacheOperations<K> cacheService) {
         this.keyCodec = keyCodec;
         this.cacheService = cacheService;
     }

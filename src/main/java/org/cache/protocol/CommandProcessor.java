@@ -11,7 +11,7 @@ import org.cache.protocol.handlers.MetricsHandler;
 import org.cache.protocol.handlers.PushHandler;
 import org.cache.protocol.handlers.PutHandler;
 import org.cache.protocol.handlers.SizeHandler;
-import org.cache.core.CacheService;
+import org.cache.core.CacheOperations;
 
 import java.util.EnumMap;
 import java.util.List;
@@ -23,7 +23,7 @@ public class CommandProcessor<K> {
 
     private final Map<CommandType, CommandHandler> handlers;
 
-    public CommandProcessor(KeyCodec<K> keyCodec, CacheService<K> cacheService) {
+    public CommandProcessor(KeyCodec<K> keyCodec, CacheOperations<K> cacheService) {
         this.handlers = new EnumMap<>(CommandType.class);
         handlers.put(CommandType.PUT, new PutHandler<>(keyCodec, cacheService));
         handlers.put(CommandType.GET, new GetHandler<>(keyCodec, cacheService));
