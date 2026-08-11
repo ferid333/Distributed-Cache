@@ -1,6 +1,6 @@
 package org.cache.network.http;
 
-import org.cache.core.CacheService;
+import org.cache.core.CacheOperations;
 import org.cache.core.ValueType;
 import org.cache.core.metrics.Snapshot;
 import org.cache.network.http.dto.GetResponseDto;
@@ -27,13 +27,13 @@ import static org.mockito.Mockito.when;
 
 class CacheControllerTest {
 
-    private CacheService<Object> cacheService;
+    private CacheOperations<Object> cacheService;
     private CacheController controller;
 
     @BeforeEach
     @SuppressWarnings("unchecked")
     void setUp() {
-        cacheService = mock(CacheService.class);
+        cacheService = mock(CacheOperations.class);
         controller = new CacheController(cacheService, (KeyCodec<Object>) (KeyCodec<?>) new StringKeyCodec());
     }
 

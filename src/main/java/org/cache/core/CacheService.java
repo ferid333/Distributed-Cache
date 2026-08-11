@@ -9,7 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-public class CacheService<K> {
+public class CacheService<K> implements CacheOperations<K> {
 
     private final Cache<K> cache;
     private final ValueCodecRegistry valueCodecs;

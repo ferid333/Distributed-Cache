@@ -23,6 +23,7 @@ import java.util.Set;
 public final class CacheConfigLoader {
 
     private static final String DEFAULT_CONFIG_FILE = "config.yml";
+    private static final String CONFIG_FILE_PROPERTY = "cache.config";
     private static final int DEFAULT_CAPACITY = 1_000;
     private static final long DEFAULT_TTL_MILLIS = 0L;
     private static final String DEFAULT_KEY_TYPE = "string";
@@ -37,7 +38,7 @@ public final class CacheConfigLoader {
     private final String configFile;
 
     public CacheConfigLoader() {
-        this(DEFAULT_CONFIG_FILE);
+        this(System.getProperty(CONFIG_FILE_PROPERTY, DEFAULT_CONFIG_FILE));
     }
 
     public CacheConfigLoader(String configFile) {

@@ -2,7 +2,7 @@ package org.cache.client;
 
 import org.cache.client.serializer.StringSerializer;
 import org.cache.core.metrics.Snapshot;
-import org.cache.network.tcp.connection.RespConnection;
+import org.cache.network.tcp.connection.RespCommandClient;
 import org.cache.protocol.codec.StringKeyCodec;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,36 +19,36 @@ import static org.mockito.Mockito.when;
 
 class TcpCacheClientTest {
 
-    private RespConnection connection;
+    private RespCommandClient commandClient;
     private TcpCacheClient<String, String> client;
 
     @BeforeEach
     void setUp() {
-        connection = mock(RespConnection.class);
-        client = new TcpCacheClient<>(connection, new StringKeyCodec(), new StringSerializer());
+        commandClient = mock(RespCommandClient.class);
+        client = new TcpCacheClient<>(commandClient, "localhost", 2020, new StringKeyCodec(), new StringSerializer());
     }
 
     @Test
     void putSendsPutCommand() throws Exception {
-        when(connection.sendCommandForResponse(List.of("PUT", "fruit", "apple"))).thenReturn(List.of("OK"));
+        when(commandClient.send("localhost", 2020, List.of("PUT", "fruit", "apple"))).thenReturn(List.of("OK"));
 
         client.put("fruit", "apple");
 
-        verify(connection).sendCommandForResponse(List.of("PUT", "fruit", "apple"));
+        verify(commandClient).send("localhost", 2020, List.of("PUT", "fruit", "apple"));
     }
 
     @Test
     void putWithTtlSendsPutCommandWithTtl() throws Exception {
-        when(connection.sendCommandForResponse(List.of("PUT", "fruit", "apple", "1000"))).thenReturn(List.of("OK"));
+        when(commandClient.send("localhost", 2020, List.of("PUT", "fruit", "apple", "1000"))).thenReturn(List.of("OK"));
 
         client.put("fruit", "apple", 1_000);
 
-        verify(connection).sendCommandForResponse(List.of("PUT", "fruit", "apple", "1000"));
+        verify(commandClient).send("localhost", 2020, List.of("PUT", "fruit", "apple", "1000"));
     }
 
     @Test
     void getReturnsValueWhenServerReturnsValue() throws Exception {
-        when(connection.sendCommandForResponse(List.of("GET", "fruit"))).thenReturn(List.of("VALUE", "apple"));
+        when(commandClient.send("localhost", 2020, List.of("GET", "fruit"))).thenReturn(List.of("VALUE", "apple"));
 
         Optional<String> value = client.get("fruit");
 
@@ -57,7 +57,7 @@ class TcpCacheClientTest {
 
     @Test
     void getReturnsEmptyWhenServerReturnsNotFound() throws Exception {
-        when(connection.sendCommandForResponse(List.of("GET", "missing"))).thenReturn(List.of("NOT_FOUND"));
+        when(commandClient.send("localhost", 2020, List.of("GET", "missing"))).thenReturn(List.of("NOT_FOUND"));
 
         Optional<String> value = client.get("missing");
 
@@ -66,16 +66,16 @@ class TcpCacheClientTest {
 
     @Test
     void deleteSendsDeleteCommand() throws Exception {
-        when(connection.sendCommandForResponse(List.of("DELETE", "fruit"))).thenReturn(List.of("OK"));
+        when(commandClient.send("localhost", 2020, List.of("DELETE", "fruit"))).thenReturn(List.of("OK"));
 
         client.delete("fruit");
 
-        verify(connection).sendCommandForResponse(List.of("DELETE", "fruit"));
+        verify(commandClient).send("localhost", 2020, List.of("DELETE", "fruit"));
     }
 
     @Test
     void sizeReturnsParsedSize() throws Exception {
-        when(connection.sendCommandForResponse(List.of("SIZE"))).thenReturn(List.of("SIZE", "3"));
+        when(commandClient.send("localhost", 2020, List.of("SIZE"))).thenReturn(List.of("SIZE", "3"));
 
         int size = client.size();
 
@@ -84,25 +84,25 @@ class TcpCacheClientTest {
 
     @Test
     void clearSendsClearCommand() throws Exception {
-        when(connection.sendCommandForResponse(List.of("CLEAR"))).thenReturn(List.of("OK"));
+        when(commandClient.send("localhost", 2020, List.of("CLEAR"))).thenReturn(List.of("OK"));
 
         client.clear();
 
-        verify(connection).sendCommandForResponse(List.of("CLEAR"));
+        verify(commandClient).send("localhost", 2020, List.of("CLEAR"));
     }
 
     @Test
     void pushSendsPushCommand() throws Exception {
-        when(connection.sendCommandForResponse(List.of("PUSH", "fruits", "apple"))).thenReturn(List.of("OK"));
+        when(commandClient.send("localhost", 2020, List.of("PUSH", "fruits", "apple"))).thenReturn(List.of("OK"));
 
         client.push("fruits", "apple");
 
-        verify(connection).sendCommandForResponse(List.of("PUSH", "fruits", "apple"));
+        verify(commandClient).send("localhost", 2020, List.of("PUSH", "fruits", "apple"));
     }
 
     @Test
     void lrangeSendsRangeCommandAndReturnsValues() throws Exception {
-        when(connection.sendCommandForResponse(List.of("LRANGE", "fruits", "0", "2")))
+        when(commandClient.send("localhost", 2020, List.of("LRANGE", "fruits", "0", "2")))
                 .thenReturn(List.of("apple", "banana"));
 
         List<String> values = client.lrange("fruits", 0, 2);
@@ -112,7 +112,7 @@ class TcpCacheClientTest {
 
     @Test
     void lrangeWithToUsesZeroAsFromIndex() throws Exception {
-        when(connection.sendCommandForResponse(List.of("LRANGE", "fruits", "0", "2")))
+        when(commandClient.send("localhost", 2020, List.of("LRANGE", "fruits", "0", "2")))
                 .thenReturn(List.of("apple", "banana"));
 
         List<String> values = client.lrange("fruits", 2);
@@ -122,7 +122,7 @@ class TcpCacheClientTest {
 
     @Test
     void lrangeReturnsEmptyListWhenServerReturnsNotFound() throws Exception {
-        when(connection.sendCommandForResponse(List.of("LRANGE", "missing", "0", "2")))
+        when(commandClient.send("localhost", 2020, List.of("LRANGE", "missing", "0", "2")))
                 .thenReturn(List.of("NOT_FOUND"));
 
         List<String> values = client.lrange("missing", 0, 2);
@@ -132,7 +132,7 @@ class TcpCacheClientTest {
 
     @Test
     void metricsReturnsParsedSnapshot() throws Exception {
-        when(connection.sendCommandForResponse(List.of("METRICS"))).thenReturn(List.of(
+        when(commandClient.send("localhost", 2020, List.of("METRICS"))).thenReturn(List.of(
                 "METRICS",
                 "hits", "1",
                 "misses", "2",
@@ -152,22 +152,15 @@ class TcpCacheClientTest {
 
     @Test
     void commandThrowsWhenServerReturnsError() throws Exception {
-        when(connection.sendCommandForResponse(List.of("GET", "fruit"))).thenReturn(List.of("ERROR", "broken"));
+        when(commandClient.send("localhost", 2020, List.of("GET", "fruit"))).thenReturn(List.of("ERROR", "broken"));
 
         assertThrows(CacheClientException.class, () -> client.get("fruit"));
     }
 
     @Test
     void commandThrowsWhenConnectionFails() throws Exception {
-        when(connection.sendCommandForResponse(List.of("GET", "fruit"))).thenThrow(new IOException("closed"));
+        when(commandClient.send("localhost", 2020, List.of("GET", "fruit"))).thenThrow(new IOException("closed"));
 
         assertThrows(CacheClientException.class, () -> client.get("fruit"));
-    }
-
-    @Test
-    void closeClosesConnection() throws Exception {
-        client.close();
-
-        verify(connection).close();
     }
 }

@@ -1,7 +1,7 @@
 package org.cache.protocol.handlers;
 
 import org.cache.protocol.codec.KeyCodec;
-import org.cache.core.CacheService;
+import org.cache.core.CacheOperations;
 import org.cache.protocol.codec.KeyCodecException;
 
 import java.util.List;
@@ -15,9 +15,9 @@ public class PutHandler<K> implements CommandHandler {
     private static final int TTL_INDEX = 3;
 
     private final KeyCodec<K> keyCodec;
-    private final CacheService<K> cacheService;
+    private final CacheOperations<K> cacheService;
 
-    public PutHandler(KeyCodec<K> keyCodec, CacheService<K> cacheService) {
+    public PutHandler(KeyCodec<K> keyCodec, CacheOperations<K> cacheService) {
         this.keyCodec = keyCodec;
         this.cacheService = cacheService;
     }

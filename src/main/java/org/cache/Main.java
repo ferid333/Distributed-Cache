@@ -1,14 +1,18 @@
 package org.cache;
 
 import org.cache.cluster.CacheNode;
+import org.cache.cluster.routing.ClusterForwardingClient;
+import org.cache.cluster.routing.RoutedCacheService;
 import org.cache.config.CacheConfig;
 import org.cache.config.CacheConfigLoader;
 import org.cache.core.Cache;
+import org.cache.core.CacheOperations;
 import org.cache.core.CacheService;
 import org.cache.core.LocalCache;
 import org.cache.core.ValueType;
 import org.cache.eviction.EvictionPolicy;
 import org.cache.network.tcp.TcpCacheServer;
+import org.cache.network.tcp.TcpCacheServerLifecycle;
 import org.cache.network.tcp.connection.ClientConnectionHandler;
 import org.cache.protocol.CommandProcessor;
 import org.cache.protocol.codec.KeyCodec;
@@ -17,7 +21,9 @@ import org.cache.protocol.codec.StringValueCodec;
 import org.cache.protocol.codec.ValueCodecRegistry;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -86,8 +92,33 @@ public class Main {
     }
 
     @Bean
-    public CommandProcessor<Object> commandProcessor(KeyCodec<Object> keyCodec, CacheService<Object> cacheService) {
+    @Primary
+    public CacheOperations<Object> routedCacheService(
+            CacheService<Object> cacheService,
+            CacheNode cacheNode,
+            CacheConfig cacheConfig,
+            ClusterForwardingClient forwardingClient,
+            KeyCodec<Object> keyCodec
+    ) {
+        return new RoutedCacheService<>(cacheService, cacheNode, cacheConfig.clusterInfo(), forwardingClient, keyCodec);
+    }
+
+    @Bean
+    public CommandProcessor<Object> commandProcessor(KeyCodec<Object> keyCodec, CacheOperations<Object> cacheService) {
         return new CommandProcessor<>(keyCodec, cacheService);
+    }
+
+    @Bean
+    public CommandProcessor<Object> clusterCommandProcessor(
+            KeyCodec<Object> keyCodec,
+            CacheService<Object> cacheService
+    ) {
+        return new CommandProcessor<>(keyCodec, cacheService);
+    }
+
+    @Bean
+    public ClusterForwardingClient clusterForwardingClient() {
+        return new ClusterForwardingClient();
     }
 
     @Bean(destroyMethod = "shutdownNow")
@@ -95,16 +126,44 @@ public class Main {
         return Executors.newFixedThreadPool(SERVER_THREAD_COUNT);
     }
 
+    @Bean(destroyMethod = "shutdownNow")
+    public ExecutorService clusterClientExecutor() {
+        return Executors.newFixedThreadPool(SERVER_THREAD_COUNT);
+    }
+
     @Bean
-    public TcpCacheServer tcpCacheServer(
+    public TcpCacheServer clientTcpCacheServer(
             CacheNode cacheNode,
-            ExecutorService tcpClientExecutor,
-            CommandProcessor<Object> commandProcessor
+            @Qualifier("tcpClientExecutor") ExecutorService tcpClientExecutor,
+            @Qualifier("commandProcessor") CommandProcessor<Object> commandProcessor
     ) throws IOException {
         return new TcpCacheServer(
                 new ServerSocket(cacheNode.tcpPort()),
                 tcpClientExecutor,
-                socket -> new ClientConnectionHandler(socket, commandProcessor)
+                socket -> new ClientConnectionHandler(socket, commandProcessor::process)
         );
+    }
+
+    @Bean
+    public TcpCacheServer clusterTcpCacheServer(
+            CacheNode cacheNode,
+            @Qualifier("clusterClientExecutor") ExecutorService clusterClientExecutor,
+            @Qualifier("clusterCommandProcessor") CommandProcessor<Object> clusterCommandProcessor
+    ) throws IOException {
+        return new TcpCacheServer(
+                new ServerSocket(cacheNode.clusterPort()),
+                clusterClientExecutor,
+                socket -> new ClientConnectionHandler(socket, clusterCommandProcessor::process)
+        );
+    }
+
+    @Bean
+    public TcpCacheServerLifecycle clientTcpCacheServerLifecycle(@Qualifier("clientTcpCacheServer") TcpCacheServer server) {
+        return new TcpCacheServerLifecycle(server, "tcp-cache-server");
+    }
+
+    @Bean
+    public TcpCacheServerLifecycle clusterTcpCacheServerLifecycle(@Qualifier("clusterTcpCacheServer") TcpCacheServer server) {
+        return new TcpCacheServerLifecycle(server, "cluster-cache-server");
     }
 }

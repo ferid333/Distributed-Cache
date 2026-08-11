@@ -1,19 +1,23 @@
 package org.cache.network.tcp;
 
 import org.springframework.context.SmartLifecycle;
-import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 
-@Component
 public class TcpCacheServerLifecycle implements SmartLifecycle {
 
     private final TcpCacheServer server;
+    private final String threadName;
     private volatile boolean running;
     private Thread serverThread;
 
     public TcpCacheServerLifecycle(TcpCacheServer server) {
+        this(server, "tcp-cache-server");
+    }
+
+    public TcpCacheServerLifecycle(TcpCacheServer server, String threadName) {
         this.server = server;
+        this.threadName = threadName;
     }
 
     @Override
@@ -23,7 +27,7 @@ public class TcpCacheServerLifecycle implements SmartLifecycle {
         }
 
         running = true;
-        serverThread = new Thread(this::runServer, "tcp-cache-server");
+        serverThread = new Thread(this::runServer, threadName);
         serverThread.start();
     }
 

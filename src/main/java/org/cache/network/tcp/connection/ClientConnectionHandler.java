@@ -1,6 +1,6 @@
 package org.cache.network.tcp.connection;
 
-import org.cache.protocol.CommandProcessor;
+import java.util.function.Function;
 
 import java.io.IOException;
 import java.net.Socket;
@@ -9,9 +9,9 @@ import java.util.List;
 public class ClientConnectionHandler implements Runnable {
 
     private final Socket socket;
-    private final CommandProcessor<?> commandProcessor;
+    private final Function<List<String>, String> commandProcessor;
 
-    public ClientConnectionHandler(Socket socket, CommandProcessor<?> commandProcessor) {
+    public ClientConnectionHandler(Socket socket, Function<List<String>, String> commandProcessor) {
         this.socket = socket;
         this.commandProcessor = commandProcessor;
     }
@@ -23,7 +23,7 @@ public class ClientConnectionHandler implements Runnable {
 
             List<String> command;
             while ((command = protocolConnection.readCommand()) != null) {
-                String response = commandProcessor.process(command);
+                String response = commandProcessor.apply(command);
                 protocolConnection.write(response);
             }
 
