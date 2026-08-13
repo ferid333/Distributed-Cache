@@ -19,6 +19,7 @@ public class RoutedCacheService<K> implements CacheOperations<K> {
     private final ConsistentHashRing hashRing;
     private final KeyCodec<K> keyCodec;
     private final CacheResponseParser responseParser;
+    private final boolean forwardingAllowed;
 
     public RoutedCacheService(
             CacheOperations<K> localService,
@@ -27,7 +28,18 @@ public class RoutedCacheService<K> implements CacheOperations<K> {
             ClusterForwardingClient forwardingClient,
             KeyCodec<K> keyCodec
     ) {
-        this(localService, currentNode, clusterInfo, forwardingClient, keyCodec, new CacheResponseParser());
+        this(localService, currentNode, clusterInfo, forwardingClient, keyCodec, true);
+    }
+
+    public RoutedCacheService(
+            CacheOperations<K> localService,
+            CacheNode currentNode,
+            ClusterInfo clusterInfo,
+            ClusterForwardingClient forwardingClient,
+            KeyCodec<K> keyCodec,
+            boolean forwardingAllowed
+    ) {
+        this(localService, currentNode, clusterInfo, forwardingClient, keyCodec, new CacheResponseParser(), forwardingAllowed);
     }
 
     RoutedCacheService(
@@ -36,7 +48,8 @@ public class RoutedCacheService<K> implements CacheOperations<K> {
             ClusterInfo clusterInfo,
             ClusterForwardingClient forwardingClient,
             KeyCodec<K> keyCodec,
-            CacheResponseParser responseParser
+            CacheResponseParser responseParser,
+            boolean forwardingAllowed
     ) {
         this.localService = localService;
         this.currentNode = currentNode;
@@ -44,17 +57,18 @@ public class RoutedCacheService<K> implements CacheOperations<K> {
         this.hashRing = clusterInfo == null ? null : new ConsistentHashRing(clusterInfo);
         this.keyCodec = keyCodec;
         this.responseParser = responseParser;
+        this.forwardingAllowed = forwardingAllowed;
     }
 
     @Override
     public void putString(K key, String value, long ttlMillis) {
-        CacheNode owner = ownerFor(key);
-        if (isLocal(owner)) {
+        Optional<CacheNode> remoteOwner = remoteOwnerFor(key);
+        if (remoteOwner.isEmpty()) {
             localService.putString(key, value, ttlMillis);
             return;
         }
 
-        expectOk(forwardingClient.forward(owner, List.of(
+        expectOk(forwardingClient.forward(remoteOwner.get(), List.of(
                 "PUT",
                 keyCodec.encode(key),
                 value,
@@ -64,12 +78,12 @@ public class RoutedCacheService<K> implements CacheOperations<K> {
 
     @Override
     public Optional<String> getString(K key) {
-        CacheNode owner = ownerFor(key);
-        if (isLocal(owner)) {
+        Optional<CacheNode> remoteOwner = remoteOwnerFor(key);
+        if (remoteOwner.isEmpty()) {
             return localService.getString(key);
         }
 
-        List<String> response = forwardingClient.forward(owner, List.of("GET", keyCodec.encode(key)));
+        List<String> response = forwardingClient.forward(remoteOwner.get(), List.of("GET", keyCodec.encode(key)));
         if (responseParser.isNotFound(response)) {
             return Optional.empty();
         }
@@ -82,23 +96,23 @@ public class RoutedCacheService<K> implements CacheOperations<K> {
 
     @Override
     public void push(K key, String value) {
-        CacheNode owner = ownerFor(key);
-        if (isLocal(owner)) {
+        Optional<CacheNode> remoteOwner = remoteOwnerFor(key);
+        if (remoteOwner.isEmpty()) {
             localService.push(key, value);
             return;
         }
 
-        expectOk(forwardingClient.forward(owner, List.of("PUSH", keyCodec.encode(key), value)));
+        expectOk(forwardingClient.forward(remoteOwner.get(), List.of("PUSH", keyCodec.encode(key), value)));
     }
 
     @Override
     public Optional<List<String>> lrange(K key, int from, int to) {
-        CacheNode owner = ownerFor(key);
-        if (isLocal(owner)) {
+        Optional<CacheNode> remoteOwner = remoteOwnerFor(key);
+        if (remoteOwner.isEmpty()) {
             return localService.lrange(key, from, to);
         }
 
-        List<String> response = forwardingClient.forward(owner, List.of(
+        List<String> response = forwardingClient.forward(remoteOwner.get(), List.of(
                 "LRANGE",
                 keyCodec.encode(key),
                 Integer.toString(from),
@@ -122,13 +136,13 @@ public class RoutedCacheService<K> implements CacheOperations<K> {
 
     @Override
     public void delete(K key) {
-        CacheNode owner = ownerFor(key);
-        if (isLocal(owner)) {
+        Optional<CacheNode> remoteOwner = remoteOwnerFor(key);
+        if (remoteOwner.isEmpty()) {
             localService.delete(key);
             return;
         }
 
-        expectOk(forwardingClient.forward(owner, List.of("DELETE", keyCodec.encode(key))));
+        expectOk(forwardingClient.forward(remoteOwner.get(), List.of("DELETE", keyCodec.encode(key))));
     }
 
     @Override
@@ -146,12 +160,18 @@ public class RoutedCacheService<K> implements CacheOperations<K> {
         return localService.metrics();
     }
 
-    private CacheNode ownerFor(K key) {
-        return hashRing == null ? currentNode : hashRing.nodeFor(keyCodec.encode(key));
-    }
+    private Optional<CacheNode> remoteOwnerFor(K key) {
+        CacheNode owner = hashRing == null ? currentNode : hashRing.nodeFor(keyCodec.encode(key));
+        if (owner.id().equals(currentNode.id())) {
+            return Optional.empty();
+        }
 
-    private boolean isLocal(CacheNode owner) {
-        return owner.id().equals(currentNode.id());
+        if (!forwardingAllowed) {
+            throw new ClusterForwardingException("Request routed to wrong node. Expected owner: " + owner.id()
+                    + ", current node: " + currentNode.id());
+        }
+
+        return Optional.of(owner);
     }
 
     private void expectOk(List<String> response) {

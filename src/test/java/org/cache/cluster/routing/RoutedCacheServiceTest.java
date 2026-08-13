@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -61,6 +62,26 @@ class RoutedCacheServiceTest {
         assertEquals(Optional.of("apple"), service.getString(key));
         verify(forwardingClient).forward(nodeB, List.of("GET", key));
         verifyNoInteractions(localService);
+    }
+
+    @Test
+    void getStringRejectsRemoteOwnerWhenForwardingIsDisabled() {
+        CacheOperations<String> localService = localService();
+        ClusterForwardingClient forwardingClient = mock(ClusterForwardingClient.class);
+        String key = keyOwnedBy(nodeB);
+        RoutedCacheService<String> service = new RoutedCacheService<>(
+                localService,
+                nodeA,
+                clusterInfo,
+                forwardingClient,
+                keyCodec,
+                false
+        );
+
+        var exception = assertThrows(ClusterForwardingException.class, () -> service.getString(key));
+
+        assertEquals("Request routed to wrong node. Expected owner: node-b, current node: node-a", exception.getMessage());
+        verifyNoInteractions(localService, forwardingClient);
     }
 
     @Test
