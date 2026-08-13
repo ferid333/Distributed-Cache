@@ -104,6 +104,24 @@ public class Main {
     }
 
     @Bean
+    public CacheOperations<Object> clusterRoutedCacheService(
+            CacheService<Object> cacheService,
+            CacheNode cacheNode,
+            CacheConfig cacheConfig,
+            ClusterForwardingClient forwardingClient,
+            KeyCodec<Object> keyCodec
+    ) {
+        return new RoutedCacheService<>(
+                cacheService,
+                cacheNode,
+                cacheConfig.clusterInfo(),
+                forwardingClient,
+                keyCodec,
+                false
+        );
+    }
+
+    @Bean
     public CommandProcessor<Object> commandProcessor(KeyCodec<Object> keyCodec, CacheOperations<Object> cacheService) {
         return new CommandProcessor<>(keyCodec, cacheService);
     }
@@ -111,7 +129,7 @@ public class Main {
     @Bean
     public CommandProcessor<Object> clusterCommandProcessor(
             KeyCodec<Object> keyCodec,
-            CacheService<Object> cacheService
+            @Qualifier("clusterRoutedCacheService") CacheOperations<Object> cacheService
     ) {
         return new CommandProcessor<>(keyCodec, cacheService);
     }
