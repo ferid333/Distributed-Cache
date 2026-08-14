@@ -32,14 +32,6 @@ public class CacheResponseParser {
         return Optional.empty();
     }
 
-    public Optional<String> errorMessage(List<String> response) {
-        if (isError(response) && response.size() > RESPONSE_VALUE_INDEX) {
-            return Optional.of(response.get(RESPONSE_VALUE_INDEX));
-        }
-
-        return Optional.empty();
-    }
-
     public boolean isKnownResponse(List<String> response) {
         return !response.isEmpty() && isKnownResponse(response.getFirst());
     }
