@@ -11,10 +11,6 @@ public class TcpCacheServerLifecycle implements SmartLifecycle {
     private volatile boolean running;
     private Thread serverThread;
 
-    public TcpCacheServerLifecycle(TcpCacheServer server) {
-        this(server, "tcp-cache-server");
-    }
-
     public TcpCacheServerLifecycle(TcpCacheServer server, String threadName) {
         this.server = server;
         this.threadName = threadName;

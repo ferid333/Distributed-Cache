@@ -62,28 +62,155 @@ public class RoutedCacheService<K> implements CacheOperations<K> {
 
     @Override
     public void putString(K key, String value, long ttlMillis) {
-        Optional<CacheNode> remoteOwner = remoteOwnerFor(key);
-        if (remoteOwner.isEmpty()) {
+        ReplicationTargets targets = writeTargetsFor(key);
+        if (targets.includesCurrentNode()) {
             localService.putString(key, value, ttlMillis);
-            return;
         }
 
-        expectOk(forwardingClient.forward(remoteOwner.get(), List.of(
-                "PUT",
-                keyCodec.encode(key),
-                value,
-                Long.toString(ttlMillis)
-        )));
+        for (CacheNode replica : targets.remoteNodes()) {
+            expectOk(forwardingClient.forward(replica, List.of(
+                    "PUT",
+                    keyCodec.encode(key),
+                    value,
+                    Long.toString(ttlMillis)
+            )));
+        }
     }
 
     @Override
     public Optional<String> getString(K key) {
-        Optional<CacheNode> remoteOwner = remoteOwnerFor(key);
-        if (remoteOwner.isEmpty()) {
-            return localService.getString(key);
+        ClusterForwardingException failure = null;
+
+        for (CacheNode owner : readOwnersFor(key)) {
+            try {
+                if (isCurrentNode(owner)) {
+                    return localService.getString(key);
+                }
+
+                return remoteGetString(owner, key);
+            } catch (ClusterForwardingException exception) {
+                failure = exception;
+            }
         }
 
-        List<String> response = forwardingClient.forward(remoteOwner.get(), List.of("GET", keyCodec.encode(key)));
+        if (failure == null) {
+            throw new ClusterForwardingException("No replica owner found for key: " + keyCodec.encode(key));
+        }
+
+        throw failure;
+    }
+
+    @Override
+    public void push(K key, String value) {
+        ReplicationTargets targets = writeTargetsFor(key);
+        if (targets.includesCurrentNode()) {
+            localService.push(key, value);
+        }
+
+        for (CacheNode replica : targets.remoteNodes()) {
+            expectOk(forwardingClient.forward(replica, List.of("PUSH", keyCodec.encode(key), value)));
+        }
+    }
+
+    @Override
+    public Optional<List<String>> lrange(K key, int from, int to) {
+        ClusterForwardingException failure = null;
+
+        for (CacheNode owner : readOwnersFor(key)) {
+            try {
+                if (isCurrentNode(owner)) {
+                    return localService.lrange(key, from, to);
+                }
+
+                return remoteLrange(owner, key, from, to);
+            } catch (ClusterForwardingException exception) {
+                failure = exception;
+            }
+        }
+
+        if (failure == null) {
+            throw new ClusterForwardingException("No replica owner found for key: " + keyCodec.encode(key));
+        }
+
+        throw failure;
+    }
+
+    @Override
+    public void delete(K key) {
+        ReplicationTargets targets = writeTargetsFor(key);
+        if (targets.includesCurrentNode()) {
+            localService.delete(key);
+        }
+
+        for (CacheNode replica : targets.remoteNodes()) {
+            expectOk(forwardingClient.forward(replica, List.of("DELETE", keyCodec.encode(key))));
+        }
+    }
+
+    @Override
+    public int size() {
+        return localService.size();
+    }
+
+    @Override
+    public void clear() {
+        localService.clear();
+    }
+
+    @Override
+    public Snapshot metrics() {
+        return localService.metrics();
+    }
+
+    private ReplicationTargets writeTargetsFor(K key) {
+        if (hashRing == null) {
+            return new ReplicationTargets(true, List.of());
+        }
+
+        List<CacheNode> owners = hashRing.nodesFor(keyCodec.encode(key));
+        boolean includesCurrentNode = owners.stream()
+                .anyMatch(this::isCurrentNode);
+
+        if (!includesCurrentNode && !forwardingAllowed) {
+            throw new ClusterForwardingException("Request routed to wrong node. Expected one of owners: "
+                    + ownerIds(owners) + ", current node: " + currentNode.id());
+        }
+
+        if (!forwardingAllowed) {
+            return new ReplicationTargets(true, List.of());
+        }
+
+        return new ReplicationTargets(
+                includesCurrentNode,
+                owners.stream()
+                        .filter(owner -> !isCurrentNode(owner))
+                        .toList()
+        );
+    }
+
+    private List<CacheNode> readOwnersFor(K key) {
+        if (hashRing == null) {
+            return List.of(currentNode);
+        }
+
+        List<CacheNode> owners = hashRing.nodesFor(keyCodec.encode(key));
+        boolean includesCurrentNode = owners.stream()
+                .anyMatch(this::isCurrentNode);
+
+        if (!includesCurrentNode && !forwardingAllowed) {
+            throw new ClusterForwardingException("Request routed to wrong node. Expected one of owners: "
+                    + ownerIds(owners) + ", current node: " + currentNode.id());
+        }
+
+        if (!forwardingAllowed) {
+            return List.of(currentNode);
+        }
+
+        return owners;
+    }
+
+    private Optional<String> remoteGetString(CacheNode owner, K key) {
+        List<String> response = forwardingClient.forward(owner, List.of("GET", keyCodec.encode(key)));
         if (responseParser.isNotFound(response)) {
             return Optional.empty();
         }
@@ -94,25 +221,8 @@ public class RoutedCacheService<K> implements CacheOperations<K> {
                 });
     }
 
-    @Override
-    public void push(K key, String value) {
-        Optional<CacheNode> remoteOwner = remoteOwnerFor(key);
-        if (remoteOwner.isEmpty()) {
-            localService.push(key, value);
-            return;
-        }
-
-        expectOk(forwardingClient.forward(remoteOwner.get(), List.of("PUSH", keyCodec.encode(key), value)));
-    }
-
-    @Override
-    public Optional<List<String>> lrange(K key, int from, int to) {
-        Optional<CacheNode> remoteOwner = remoteOwnerFor(key);
-        if (remoteOwner.isEmpty()) {
-            return localService.lrange(key, from, to);
-        }
-
-        List<String> response = forwardingClient.forward(remoteOwner.get(), List.of(
+    private Optional<List<String>> remoteLrange(CacheNode owner, K key, int from, int to) {
+        List<String> response = forwardingClient.forward(owner, List.of(
                 "LRANGE",
                 keyCodec.encode(key),
                 Integer.toString(from),
@@ -134,44 +244,15 @@ public class RoutedCacheService<K> implements CacheOperations<K> {
         throw new ClusterForwardingException("Unexpected cluster response: " + response);
     }
 
-    @Override
-    public void delete(K key) {
-        Optional<CacheNode> remoteOwner = remoteOwnerFor(key);
-        if (remoteOwner.isEmpty()) {
-            localService.delete(key);
-            return;
-        }
-
-        expectOk(forwardingClient.forward(remoteOwner.get(), List.of("DELETE", keyCodec.encode(key))));
+    private boolean isCurrentNode(CacheNode owner) {
+        return owner.id().equals(currentNode.id());
     }
 
-    @Override
-    public int size() {
-        return localService.size();
-    }
-
-    @Override
-    public void clear() {
-        localService.clear();
-    }
-
-    @Override
-    public Snapshot metrics() {
-        return localService.metrics();
-    }
-
-    private Optional<CacheNode> remoteOwnerFor(K key) {
-        CacheNode owner = hashRing == null ? currentNode : hashRing.nodeFor(keyCodec.encode(key));
-        if (owner.id().equals(currentNode.id())) {
-            return Optional.empty();
-        }
-
-        if (!forwardingAllowed) {
-            throw new ClusterForwardingException("Request routed to wrong node. Expected owner: " + owner.id()
-                    + ", current node: " + currentNode.id());
-        }
-
-        return Optional.of(owner);
+    private String ownerIds(List<CacheNode> owners) {
+        return owners.stream()
+                .map(CacheNode::id)
+                .toList()
+                .toString();
     }
 
     private void expectOk(List<String> response) {
