@@ -2,6 +2,7 @@ package org.cache.config;
 
 import org.cache.cluster.CacheNode;
 import org.cache.cluster.ClusterInfo;
+import org.cache.cluster.NodeStatus;
 import org.cache.eviction.EvictionPolicy;
 import org.cache.eviction.EvictionPolicyType;
 import org.cache.eviction.LruEvictionPolicy;
@@ -84,7 +85,8 @@ public final class CacheConfigLoader {
                 getString(properties, ConfigKey.merge(ConfigKey.NODE, ConfigKey.HOST), DEFAULT_NODE_HOST),
                 getInt(properties, ConfigKey.merge(ConfigKey.NODE, ConfigKey.HTTP_PORT), DEFAULT_HTTP_PORT),
                 getInt(properties, ConfigKey.merge(ConfigKey.NODE, ConfigKey.TCP_PORT), DEFAULT_TCP_PORT),
-                getInt(properties, ConfigKey.merge(ConfigKey.NODE, ConfigKey.CLUSTER_PORT), DEFAULT_CLUSTER_PORT)
+                getInt(properties, ConfigKey.merge(ConfigKey.NODE, ConfigKey.CLUSTER_PORT), DEFAULT_CLUSTER_PORT),
+                NodeStatus.HEALTHY
         );
     }
 
@@ -112,7 +114,8 @@ public final class CacheConfigLoader {
                     getString(properties, clusterNodeKey(index, ConfigKey.HOST)),
                     getInt(properties, clusterNodeKey(index, ConfigKey.HTTP_PORT)),
                     getInt(properties, clusterNodeKey(index, ConfigKey.TCP_PORT)),
-                    getInt(properties, clusterNodeKey(index, ConfigKey.CLUSTER_PORT))
+                    getInt(properties, clusterNodeKey(index, ConfigKey.CLUSTER_PORT)),
+                    NodeStatus.HEALTHY
             );
 
             nodes.add(node);

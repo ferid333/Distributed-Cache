@@ -119,6 +119,16 @@ class CommandProcessorTest {
     }
 
     @Test
+    void processPingReturnsPongOrEchoValue() {
+        try (var cache = new LocalCache<String>(10, new LruEvictionPolicy<>())) {
+            CommandProcessor<String> processor = processor(cache);
+
+            assertEquals("PONG", processor.process(List.of("PING")));
+            assertEquals("hello", processor.process(List.of("PING", "hello")));
+        }
+    }
+
+    @Test
     void processReturnsInvalidUsageErrors() {
         try (var cache = new LocalCache<String>(10, new LruEvictionPolicy<>())) {
             CommandProcessor<String> processor = processor(cache);

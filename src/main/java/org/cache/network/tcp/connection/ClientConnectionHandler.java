@@ -1,12 +1,15 @@
 package org.cache.network.tcp.connection;
 
-import java.util.function.Function;
-
 import java.io.IOException;
 import java.net.Socket;
 import java.util.List;
+import java.util.function.Function;
+
+import static org.cache.protocol.handlers.ResponseConstants.ERROR;
 
 public class ClientConnectionHandler implements Runnable {
+
+    private static final String DEFAULT_ERROR_MESSAGE = "internal server error";
 
     private final Socket socket;
     private final Function<List<String>, String> commandProcessor;
@@ -23,12 +26,24 @@ public class ClientConnectionHandler implements Runnable {
 
             List<String> command;
             while ((command = protocolConnection.readCommand()) != null) {
-                String response = commandProcessor.apply(command);
-                protocolConnection.write(response);
+                protocolConnection.write(process(command));
             }
 
         } catch (IOException exception) {
             System.err.println("Client connection failed: " + exception.getMessage());
+        }
+    }
+
+    private String process(List<String> command) {
+        try {
+            return commandProcessor.apply(command);
+        } catch (RuntimeException exception) {
+            String message = exception.getMessage();
+            if (message == null || message.isBlank()) {
+                message = DEFAULT_ERROR_MESSAGE;
+            }
+
+            return ERROR.name() + " " + message;
         }
     }
 }
