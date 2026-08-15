@@ -26,6 +26,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/cache")
 public class CacheController {
 
+    private static final String PING_DEFAULT_RESPONSE = "PONG";
+
     private final CacheOperations<Object> cacheService;
     private final KeyCodec<Object> keyCodec;
 
@@ -82,6 +84,15 @@ public class CacheController {
     @GetMapping("/size")
     public ResponseEntity<SizeResponseDto> size() {
         return ResponseEntity.ok(new SizeResponseDto(cacheService.size()));
+    }
+
+    @GetMapping("/ping")
+    public ResponseEntity<GetResponseDto> ping(@RequestParam(required = false) String value) {
+        if (value == null || value.isBlank()) {
+            return ResponseEntity.ok(new GetResponseDto(PING_DEFAULT_RESPONSE));
+        }
+
+        return ResponseEntity.ok(new GetResponseDto(value));
     }
 
     @GetMapping("/metrics")

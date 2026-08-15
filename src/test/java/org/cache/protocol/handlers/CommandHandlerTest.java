@@ -25,6 +25,7 @@ class CommandHandlerTest {
     private GetHandler<String> getHandler;
     private LrangeHandler<String> lrangeHandler;
     private MetricsHandler metricsHandler;
+    private PingHandler pingHandler;
     private PushHandler<String> pushHandler;
     private PutHandler<String> putHandler;
     private SizeHandler sizeHandler;
@@ -39,6 +40,7 @@ class CommandHandlerTest {
         getHandler = new GetHandler<>(keyCodec, cacheService);
         lrangeHandler = new LrangeHandler<>(keyCodec, cacheService);
         metricsHandler = new MetricsHandler(cacheService);
+        pingHandler = new PingHandler();
         pushHandler = new PushHandler<>(keyCodec, cacheService);
         putHandler = new PutHandler<>(keyCodec, cacheService);
         sizeHandler = new SizeHandler(cacheService);
@@ -145,6 +147,13 @@ class CommandHandlerTest {
 
         assertEquals("METRICS hits=0 misses=1 evictions=0 expirations=0 hitRate=0.0", metricsHandler.handle(List.of("METRICS")));
         assertEquals("ERROR usage: METRICS", metricsHandler.handle(List.of("METRICS", "extra")));
+    }
+
+    @Test
+    void pingReturnsPongEchoValueAndRejectsInvalidUsage() {
+        assertEquals("PONG", pingHandler.handle(List.of("PING")));
+        assertEquals("hello", pingHandler.handle(List.of("PING", "hello")));
+        assertEquals("ERROR usage: PING [value]", pingHandler.handle(List.of("PING", "hello", "again")));
     }
 
     private static ValueCodecRegistry valueCodecs() {

@@ -1,17 +1,18 @@
 package org.cache.protocol;
 
 import org.cache.protocol.codec.KeyCodec;
-import org.cache.protocol.handlers.CommandType;
+import org.cache.core.CacheOperations;
 import org.cache.protocol.handlers.ClearHandler;
 import org.cache.protocol.handlers.CommandHandler;
+import org.cache.protocol.handlers.CommandType;
 import org.cache.protocol.handlers.DeleteHandler;
 import org.cache.protocol.handlers.GetHandler;
 import org.cache.protocol.handlers.LrangeHandler;
 import org.cache.protocol.handlers.MetricsHandler;
+import org.cache.protocol.handlers.PingHandler;
 import org.cache.protocol.handlers.PushHandler;
 import org.cache.protocol.handlers.PutHandler;
 import org.cache.protocol.handlers.SizeHandler;
-import org.cache.core.CacheOperations;
 
 import java.util.EnumMap;
 import java.util.List;
@@ -33,6 +34,7 @@ public class CommandProcessor<K> {
         handlers.put(CommandType.METRICS, new MetricsHandler(cacheService));
         handlers.put(CommandType.PUSH, new PushHandler<>(keyCodec, cacheService));
         handlers.put(CommandType.LRANGE, new LrangeHandler<>(keyCodec, cacheService));
+        handlers.put(CommandType.PING, new PingHandler());
     }
 
     public String process(List<String> commandParts) {
