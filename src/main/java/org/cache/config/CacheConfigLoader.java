@@ -140,13 +140,13 @@ public final class CacheConfigLoader {
         Set<String> hostPorts = new HashSet<>();
 
         for (CacheNode node : nodes) {
-            if (!nodeIds.add(node.id())) {
-                throw new CacheConfigException("Cluster node ids must be unique: " + node.id());
+            if (!nodeIds.add(node.getId())) {
+                throw new CacheConfigException("Cluster node ids must be unique: " + node.getId());
             }
 
-            addHostPort(hostPorts, node.host(), node.httpPort());
-            addHostPort(hostPorts, node.host(), node.tcpPort());
-            addHostPort(hostPorts, node.host(), node.clusterPort());
+            addHostPort(hostPorts, node.getHost(), node.getHttpPort());
+            addHostPort(hostPorts, node.getHost(), node.getTcpPort());
+            addHostPort(hostPorts, node.getHost(), node.getClusterPort());
         }
     }
 

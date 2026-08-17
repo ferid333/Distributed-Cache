@@ -22,7 +22,7 @@ class CacheConfigLoaderTest {
         try {
             CacheConfig config = new CacheConfigLoader().load();
 
-            assertEquals("node-test", config.cacheNode().id());
+            assertEquals("node-test", config.cacheNode().getId());
             assertEquals(250, config.capacity());
         } finally {
             if (previousConfigFile == null) {
@@ -41,11 +41,11 @@ class CacheConfigLoaderTest {
         assertEquals(0, config.defaultTtlMillis());
         assertInstanceOf(StringKeyCodec.class, config.keyCodec());
         assertInstanceOf(LruEvictionPolicy.class, config.evictionPolicy());
-        assertEquals("node-a", config.cacheNode().id());
-        assertEquals("localhost", config.cacheNode().host());
-        assertEquals(8080, config.cacheNode().httpPort());
-        assertEquals(2020, config.cacheNode().tcpPort());
-        assertEquals(10001, config.cacheNode().clusterPort());
+        assertEquals("node-a", config.cacheNode().getId());
+        assertEquals("localhost", config.cacheNode().getHost());
+        assertEquals(8080, config.cacheNode().getHttpPort());
+        assertEquals(2020, config.cacheNode().getTcpPort());
+        assertEquals(10001, config.cacheNode().getClusterPort());
         assertNull(config.clusterInfo());
     }
 
@@ -58,11 +58,11 @@ class CacheConfigLoaderTest {
         assertInstanceOf(IntegerKeyCodec.class, config.keyCodec());
         assertEquals(42, config.keyCodec().decode("42"));
         assertInstanceOf(MruEvictionPolicy.class, config.evictionPolicy());
-        assertEquals("node-test", config.cacheNode().id());
-        assertEquals("127.0.0.1", config.cacheNode().host());
-        assertEquals(18080, config.cacheNode().httpPort());
-        assertEquals(12020, config.cacheNode().tcpPort());
-        assertEquals(11001, config.cacheNode().clusterPort());
+        assertEquals("node-test", config.cacheNode().getId());
+        assertEquals("127.0.0.1", config.cacheNode().getHost());
+        assertEquals(18080, config.cacheNode().getHttpPort());
+        assertEquals(12020, config.cacheNode().getTcpPort());
+        assertEquals(11001, config.cacheNode().getClusterPort());
         assertNull(config.clusterInfo());
     }
 
@@ -73,7 +73,7 @@ class CacheConfigLoaderTest {
         assertNotNull(config.clusterInfo());
         assertEquals(2, config.clusterInfo().replicationFactor());
         assertEquals(3, config.clusterInfo().nodes().size());
-        assertEquals("node-a", config.clusterInfo().nodes().getFirst().id());
+        assertEquals("node-a", config.clusterInfo().nodes().getFirst().getId());
     }
 
     @Test

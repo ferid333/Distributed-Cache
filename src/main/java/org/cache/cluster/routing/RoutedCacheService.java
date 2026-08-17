@@ -173,7 +173,7 @@ public class RoutedCacheService<K> implements CacheOperations<K> {
 
         if (!includesCurrentNode && !forwardingAllowed) {
             throw new ClusterForwardingException("Request routed to wrong node. Expected one of owners: "
-                    + ownerIds(owners) + ", current node: " + currentNode.id());
+                    + ownerIds(owners) + ", current node: " + currentNode.getId());
         }
 
         if (!forwardingAllowed) {
@@ -199,7 +199,7 @@ public class RoutedCacheService<K> implements CacheOperations<K> {
 
         if (!includesCurrentNode && !forwardingAllowed) {
             throw new ClusterForwardingException("Request routed to wrong node. Expected one of owners: "
-                    + ownerIds(owners) + ", current node: " + currentNode.id());
+                    + ownerIds(owners) + ", current node: " + currentNode.getId());
         }
 
         if (!forwardingAllowed) {
@@ -245,12 +245,12 @@ public class RoutedCacheService<K> implements CacheOperations<K> {
     }
 
     private boolean isCurrentNode(CacheNode owner) {
-        return owner.id().equals(currentNode.id());
+        return owner.getId().equals(currentNode.getId());
     }
 
     private String ownerIds(List<CacheNode> owners) {
         return owners.stream()
-                .map(CacheNode::id)
+                .map(CacheNode::getId)
                 .toList()
                 .toString();
     }

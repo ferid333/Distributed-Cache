@@ -1,6 +1,7 @@
 package org.cache;
 
 import org.cache.cluster.CacheNode;
+import org.cache.cluster.ClusterHealthMonitor;
 import org.cache.cluster.routing.ClusterForwardingClient;
 import org.cache.cluster.routing.RoutedCacheService;
 import org.cache.config.CacheConfig;
@@ -40,7 +41,7 @@ public class Main {
         configuredCacheConfig = loadConfiguration();
         var app = new SpringApplication(Main.class);
         app.setDefaultProperties(Map.of(
-                "server.port", configuredCacheConfig.cacheNode().httpPort()
+                "server.port", configuredCacheConfig.cacheNode().getHttpPort()
         ));
         app.run(args);
     }
@@ -139,6 +140,15 @@ public class Main {
         return new ClusterForwardingClient();
     }
 
+    @Bean
+    public ClusterHealthMonitor clusterHealthMonitor(
+            CacheNode cacheNode,
+            CacheConfig cacheConfig,
+            ClusterForwardingClient forwardingClient
+    ) {
+        return new ClusterHealthMonitor(cacheNode, cacheConfig.clusterInfo(), forwardingClient);
+    }
+
     @Bean(destroyMethod = "shutdownNow")
     public ExecutorService tcpClientExecutor() {
         return Executors.newFixedThreadPool(SERVER_THREAD_COUNT);
@@ -156,7 +166,7 @@ public class Main {
             @Qualifier("commandProcessor") CommandProcessor<Object> commandProcessor
     ) throws IOException {
         return new TcpCacheServer(
-                new ServerSocket(cacheNode.tcpPort()),
+                new ServerSocket(cacheNode.getTcpPort()),
                 tcpClientExecutor,
                 socket -> new ClientConnectionHandler(socket, commandProcessor::process)
         );
@@ -169,7 +179,7 @@ public class Main {
             @Qualifier("clusterCommandProcessor") CommandProcessor<Object> clusterCommandProcessor
     ) throws IOException {
         return new TcpCacheServer(
-                new ServerSocket(cacheNode.clusterPort()),
+                new ServerSocket(cacheNode.getClusterPort()),
                 clusterClientExecutor,
                 socket -> new ClientConnectionHandler(socket, clusterCommandProcessor::process)
         );

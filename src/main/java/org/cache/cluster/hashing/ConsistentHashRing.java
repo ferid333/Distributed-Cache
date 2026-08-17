@@ -2,6 +2,7 @@ package org.cache.cluster.hashing;
 
 import org.cache.cluster.CacheNode;
 import org.cache.cluster.ClusterInfo;
+import org.cache.cluster.NodeStatus;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -40,7 +41,12 @@ public final class ConsistentHashRing {
     }
 
     public CacheNode nodeFor(String key) {
-        return nodesFor(key).getFirst();
+        List<CacheNode> nodes = nodesFor(key);
+        if (nodes.isEmpty()) {
+            throw new IllegalStateException("No available nodes in hash ring");
+        }
+
+        return nodes.getFirst();
     }
 
     public List<CacheNode> nodesFor(String key) {
@@ -64,13 +70,13 @@ public final class ConsistentHashRing {
 
     private void addNode(CacheNode node, int virtualNodeCount) {
         for (int index = 0; index < virtualNodeCount; index++) {
-            ring.put(hash(node.id() + "#" + index), node);
+            ring.put(hash(node.getId() + "#" + index), node);
         }
     }
 
     private void addNodesFromRing(long startHash, List<CacheNode> nodes, Set<String> selectedNodeIds) {
         for (CacheNode node : ring.tailMap(startHash, true).values()) {
-            if (selectedNodeIds.add(node.id())) {
+            if (node.getStatus() != NodeStatus.UNAVAILABLE && selectedNodeIds.add(node.getId())) {
                 nodes.add(node);
             }
 

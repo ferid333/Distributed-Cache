@@ -119,7 +119,7 @@ class RoutedCacheServiceTest {
         String key = keyNotReplicatedTo(nodeA);
         List<String> ownerIds = replicaOwnersFor(key)
                 .stream()
-                .map(CacheNode::id)
+                .map(CacheNode::getId)
                 .toList();
         RoutedCacheService<String> service = new RoutedCacheService<>(
                 localService,
@@ -144,7 +144,7 @@ class RoutedCacheServiceTest {
         String key = keyReplicatedIncluding(nodeA);
         List<CacheNode> remoteOwners = replicaOwnersFor(key)
                 .stream()
-                .filter(owner -> !owner.id().equals(nodeA.id()))
+                .filter(owner -> !owner.getId().equals(nodeA.getId()))
                 .toList();
         RoutedCacheService<String> service = new RoutedCacheService<>(
                 localService,
@@ -216,7 +216,7 @@ class RoutedCacheServiceTest {
         String key = keyNotReplicatedTo(nodeA);
         List<String> ownerIds = replicaOwnersFor(key)
                 .stream()
-                .map(CacheNode::id)
+                .map(CacheNode::getId)
                 .toList();
         RoutedCacheService<String> service = new RoutedCacheService<>(
                 localService,
@@ -300,12 +300,12 @@ class RoutedCacheServiceTest {
 
         for (int index = 0; index < 10_000; index++) {
             String key = "key-" + index;
-            if (ring.nodeFor(key).id().equals(owner.id())) {
+            if (ring.nodeFor(key).getId().equals(owner.getId())) {
                 return key;
             }
         }
 
-        throw new IllegalStateException("Could not find key owned by node: " + owner.id());
+        throw new IllegalStateException("Could not find key owned by node: " + owner.getId());
     }
 
     private String keyReplicatedTo(CacheNode firstOwner, CacheNode secondOwner) {
@@ -315,54 +315,54 @@ class RoutedCacheServiceTest {
             String key = "replica-key-" + index;
             List<String> ownerIds = ring.nodesFor(key)
                     .stream()
-                    .map(CacheNode::id)
+                    .map(CacheNode::getId)
                     .toList();
 
-            if (ownerIds.equals(List.of(firstOwner.id(), secondOwner.id()))) {
+            if (ownerIds.equals(List.of(firstOwner.getId(), secondOwner.getId()))) {
                 return key;
             }
         }
 
         throw new IllegalStateException("Could not find key replicated to owners: "
-                + firstOwner.id() + ", " + secondOwner.id());
+                + firstOwner.getId() + ", " + secondOwner.getId());
     }
 
     private String keyReplicatedIncluding(CacheNode owner) {
         for (int index = 0; index < 10_000; index++) {
             String key = "replica-key-" + index;
             boolean containsOwner = replicaOwnersFor(key).stream()
-                    .anyMatch(replicaOwner -> replicaOwner.id().equals(owner.id()));
+                    .anyMatch(replicaOwner -> replicaOwner.getId().equals(owner.getId()));
 
             if (containsOwner) {
                 return key;
             }
         }
 
-        throw new IllegalStateException("Could not find key replicated to owner: " + owner.id());
+        throw new IllegalStateException("Could not find key replicated to owner: " + owner.getId());
     }
 
     private String keyNotReplicatedTo(CacheNode owner) {
         for (int index = 0; index < 10_000; index++) {
             String key = "replica-key-" + index;
             boolean containsOwner = replicaOwnersFor(key).stream()
-                    .anyMatch(replicaOwner -> replicaOwner.id().equals(owner.id()));
+                    .anyMatch(replicaOwner -> replicaOwner.getId().equals(owner.getId()));
 
             if (!containsOwner) {
                 return key;
             }
         }
 
-        throw new IllegalStateException("Could not find key not replicated to owner: " + owner.id());
+        throw new IllegalStateException("Could not find key not replicated to owner: " + owner.getId());
     }
 
     private String keyReplicatedToRemotePrimaryAndLocalReplica() {
         for (int index = 0; index < 10_000; index++) {
             String key = "replica-key-" + index;
             List<CacheNode> owners = replicaOwnersFor(key);
-            boolean hasRemotePrimary = !owners.getFirst().id().equals(nodeA.id());
+            boolean hasRemotePrimary = !owners.getFirst().getId().equals(nodeA.getId());
             boolean hasLocalReplica = owners.stream()
                     .skip(1)
-                    .anyMatch(owner -> owner.id().equals(nodeA.id()));
+                    .anyMatch(owner -> owner.getId().equals(nodeA.getId()));
 
             if (hasRemotePrimary && hasLocalReplica) {
                 return key;

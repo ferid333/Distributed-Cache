@@ -2,11 +2,13 @@ package org.cache.cluster.hashing;
 
 import org.cache.cluster.CacheNode;
 import org.cache.cluster.ClusterInfo;
+import org.cache.cluster.NodeStatus;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -29,7 +31,7 @@ class ConsistentHashRingTest {
         List<CacheNode> nodes = ring.nodesFor("account:42");
 
         assertEquals(2, nodes.size());
-        assertNotEquals(nodes.get(0).id(), nodes.get(1).id());
+        assertNotEquals(nodes.get(0).getId(), nodes.get(1).getId());
     }
 
     @Test
@@ -39,6 +41,19 @@ class ConsistentHashRingTest {
         List<CacheNode> nodes = ring.nodesFor("account:42");
 
         assertEquals(3, nodes.size());
+    }
+
+    @Test
+    void nodesForIgnoresUnavailableNodes() {
+        ClusterInfo clusterInfo = clusterInfo(3);
+        CacheNode unavailableNode = clusterInfo.nodes().get(1);
+        unavailableNode.setStatus(NodeStatus.UNAVAILABLE);
+        ConsistentHashRing ring = new ConsistentHashRing(clusterInfo, 32);
+
+        List<CacheNode> nodes = ring.nodesFor("account:42");
+
+        assertEquals(2, nodes.size());
+        assertFalse(nodes.stream().anyMatch(node -> node.getId().equals(unavailableNode.getId())));
     }
 
     @Test
