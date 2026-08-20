@@ -2,6 +2,7 @@ package org.cache.config;
 
 import org.cache.cluster.CacheNode;
 import org.cache.cluster.ClusterInfo;
+import org.cache.cluster.ClusterValidator;
 import org.cache.cluster.NodeStatus;
 import org.cache.eviction.EvictionPolicy;
 import org.cache.eviction.EvictionPolicyType;
@@ -15,11 +16,9 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Properties;
-import java.util.Set;
 
 public final class CacheConfigLoader {
 
@@ -122,39 +121,9 @@ public final class CacheConfigLoader {
             index++;
         }
 
-        validateClusterInfo(replicationFactor, nodes);
+        ClusterValidator.validateClusterInfo(replicationFactor, nodes);
 
         return new ClusterInfo(replicationFactor, nodes);
-    }
-
-    private void validateClusterInfo(int replicationFactor, List<CacheNode> nodes) {
-        if (replicationFactor < 1) {
-            throw new CacheConfigException("Cluster replication factor must be at least 1");
-        }
-
-        if (replicationFactor > nodes.size()) {
-            throw new CacheConfigException("Cluster replication factor must not exceed number of active nodes");
-        }
-
-        Set<String> nodeIds = new HashSet<>();
-        Set<String> hostPorts = new HashSet<>();
-
-        for (CacheNode node : nodes) {
-            if (!nodeIds.add(node.getId())) {
-                throw new CacheConfigException("Cluster node ids must be unique: " + node.getId());
-            }
-
-            addHostPort(hostPorts, node.getHost(), node.getHttpPort());
-            addHostPort(hostPorts, node.getHost(), node.getTcpPort());
-            addHostPort(hostPorts, node.getHost(), node.getClusterPort());
-        }
-    }
-
-    private void addHostPort(Set<String> hostPorts, String host, int port) {
-        String hostPort = host + ":" + port;
-        if (!hostPorts.add(hostPort)) {
-            throw new CacheConfigException("Cluster node host-port combinations must be unique: " + hostPort);
-        }
     }
 
     private boolean hasClusterConfig(Properties properties) {

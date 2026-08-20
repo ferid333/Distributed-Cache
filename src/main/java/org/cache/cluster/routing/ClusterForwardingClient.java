@@ -8,9 +8,6 @@ import java.util.List;
 
 public class ClusterForwardingClient {
 
-    private static final List<String> PING_COMMAND = List.of("PING");
-    private static final List<String> PONG_RESPONSE = List.of("PONG");
-
     private final RespCommandClient commandClient;
 
     public ClusterForwardingClient() {
@@ -26,14 +23,6 @@ public class ClusterForwardingClient {
             return commandClient.send(targetNode.getHost(), targetNode.getClusterPort(), commandParts);
         } catch (IOException exception) {
             throw new ClusterForwardingException("Failed to forward request to node: " + targetNode.getId(), exception);
-        }
-    }
-
-    public boolean ping(CacheNode targetNode) {
-        try {
-            return PONG_RESPONSE.equals(commandClient.send(targetNode.getHost(), targetNode.getClusterPort(), PING_COMMAND));
-        } catch (IOException exception) {
-            return false;
         }
     }
 }

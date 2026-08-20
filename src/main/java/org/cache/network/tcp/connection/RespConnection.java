@@ -27,6 +27,8 @@ import static org.cache.protocol.handlers.ResponseConstants.ERROR;
 import static org.cache.protocol.handlers.ResponseConstants.LIST;
 import static org.cache.protocol.handlers.ResponseConstants.METRICS;
 import static org.cache.protocol.handlers.ResponseConstants.SIZE;
+import static org.cache.protocol.handlers.ResponseConstants.TOPOLOGY;
+import static org.cache.protocol.handlers.ResponseConstants.TOPOLOGY_DIGEST;
 import static org.cache.protocol.handlers.ResponseConstants.VALUE;
 
 public class RespConnection implements ProtocolConnection, AutoCloseable {
@@ -185,6 +187,12 @@ public class RespConnection implements ProtocolConnection, AutoCloseable {
             }
             if (Set.of(ERROR.name(), VALUE.name(), SIZE.name()).contains(prefix)) {
                 return List.of(prefix, parts[1]);
+            }
+            if (prefix.equals(TOPOLOGY.name())) {
+                return List.of(prefix, parts[1]);
+            }
+            if (prefix.equals(TOPOLOGY_DIGEST.name())) {
+                return List.of(response.split(WHITESPACE, 3));
             }
         }
 

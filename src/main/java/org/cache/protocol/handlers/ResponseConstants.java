@@ -8,5 +8,7 @@ public enum ResponseConstants {
     VALUE,
     SIZE,
     METRICS,
-    LIST;
+    LIST,
+    TOPOLOGY_DIGEST,
+    TOPOLOGY;
 }

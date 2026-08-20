@@ -1,6 +1,5 @@
 package org.cache.cluster;
 
-import org.cache.cluster.routing.ClusterForwardingClient;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -15,14 +14,14 @@ class ClusterHealthMonitorTest {
 
     private final CacheNode nodeA = node("node-a", 8080, 2020, 10001);
     private final CacheNode nodeB = node("node-b", 8081, 2021, 10002);
-    private final ClusterInfo clusterInfo = new ClusterInfo(1, List.of(nodeA, nodeB));
+    private final ClusterMembership clusterMembership = membership(nodeA, nodeB);
 
     @Test
     void checkClusterMovesNodeThroughFailureStatesAfterConsecutiveFailures() {
-        ClusterForwardingClient forwardingClient = mock(ClusterForwardingClient.class);
-        ClusterHealthMonitor monitor = monitor(forwardingClient);
+        ClusterMembershipClient membershipClient = mock(ClusterMembershipClient.class);
+        ClusterHealthMonitor monitor = monitor(membershipClient);
 
-        when(forwardingClient.ping(nodeB)).thenReturn(false);
+        when(membershipClient.ping(nodeB)).thenReturn(false);
 
         monitor.checkCluster();
         assertEquals(NodeStatus.HEALTHY, nodeB.getStatus());
@@ -36,10 +35,10 @@ class ClusterHealthMonitorTest {
 
     @Test
     void checkClusterRestoresHealthyStatusAfterSuccessfulPing() {
-        ClusterForwardingClient forwardingClient = mock(ClusterForwardingClient.class);
-        ClusterHealthMonitor monitor = monitor(forwardingClient);
+        ClusterMembershipClient membershipClient = mock(ClusterMembershipClient.class);
+        ClusterHealthMonitor monitor = monitor(membershipClient);
 
-        when(forwardingClient.ping(nodeB)).thenReturn(false, false, true);
+        when(membershipClient.ping(nodeB)).thenReturn(false, false, true);
 
         monitor.checkCluster();
         monitor.checkCluster();
@@ -51,26 +50,30 @@ class ClusterHealthMonitorTest {
 
     @Test
     void checkClusterDoesNothingWhenClusterIsDisabled() {
-        ClusterForwardingClient forwardingClient = mock(ClusterForwardingClient.class);
+        ClusterMembershipClient membershipClient = mock(ClusterMembershipClient.class);
         ClusterHealthMonitor monitor = new ClusterHealthMonitor(
                 nodeA,
-                null,
-                forwardingClient,
+                new ClusterMembership(null),
+                membershipClient,
                 mock(ScheduledExecutorService.class)
         );
 
         monitor.checkCluster();
 
-        verifyNoInteractions(forwardingClient);
+        verifyNoInteractions(membershipClient);
     }
 
-    private ClusterHealthMonitor monitor(ClusterForwardingClient forwardingClient) {
+    private ClusterHealthMonitor monitor(ClusterMembershipClient membershipClient) {
         return new ClusterHealthMonitor(
                 nodeA,
-                clusterInfo,
-                forwardingClient,
+                clusterMembership,
+                membershipClient,
                 mock(ScheduledExecutorService.class)
         );
+    }
+
+    private ClusterMembership membership(CacheNode... nodes) {
+        return new ClusterMembership(new ClusterTopology(0, List.of(nodes), 1, 128));
     }
 
     private CacheNode node(String id, int httpPort, int tcpPort, int clusterPort) {
