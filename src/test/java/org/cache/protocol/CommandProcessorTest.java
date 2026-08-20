@@ -1,5 +1,10 @@
 package org.cache.protocol;
 
+import org.cache.cluster.CacheNode;
+import org.cache.cluster.ClusterGossipService;
+import org.cache.cluster.ClusterMembership;
+import org.cache.cluster.ClusterTopology;
+import org.cache.cluster.ClusterTopologyCodec;
 import org.cache.core.LocalCache;
 import org.cache.core.ValueType;
 import org.cache.eviction.LruEvictionPolicy;
@@ -14,6 +19,9 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 class CommandProcessorTest {
 
@@ -125,6 +133,97 @@ class CommandProcessorTest {
 
             assertEquals("PONG", processor.process(List.of("PING")));
             assertEquals("hello", processor.process(List.of("PING", "hello")));
+        }
+    }
+
+    @Test
+    void processTopologyCommandsWhenMembershipIsConfigured() {
+        try (var cache = new LocalCache<String>(10, new LruEvictionPolicy<>())) {
+            CacheNode nodeA = new CacheNode("node-a", "localhost", 8080, 2020, 10001);
+            CacheNode nodeB = new CacheNode("node-b", "localhost", 8081, 2021, 10002);
+            ClusterMembership membership = new ClusterMembership(new ClusterTopology(1, List.of(nodeA), 1, 128));
+            CommandProcessor<String> processor = new CommandProcessor<>(
+                    new StringKeyCodec(),
+                    new CacheService<>(cache, valueCodecs()),
+                    membership
+            );
+            ClusterTopology incomingTopology = new ClusterTopology(2, List.of(nodeA, nodeB), 1, 128);
+            String encodedTopology = new ClusterTopologyCodec().encode(incomingTopology);
+
+            assertEquals("OK", processor.process(List.of("TOPOLOGY_APPLY", encodedTopology)));
+            assertEquals(2, membership.currentTopology().version());
+            assertEquals(
+                    "TOPOLOGY_DIGEST 2 " + membership.currentTopology().fingerprint(),
+                    processor.process(List.of("TOPOLOGY_DIGEST"))
+            );
+            assertEquals(
+                    "TOPOLOGY " + new ClusterTopologyCodec().encode(membership.currentTopology()),
+                    processor.process(List.of("TOPOLOGY_GET"))
+            );
+        }
+    }
+
+    @Test
+    void processClusterAddAndRemoveNodeCommandsWhenGossipIsConfigured() {
+        try (var cache = new LocalCache<String>(10, new LruEvictionPolicy<>())) {
+            CacheNode nodeA = new CacheNode("node-a", "localhost", 8080, 2020, 10001);
+            ClusterMembership membership = new ClusterMembership(new ClusterTopology(1, List.of(nodeA), 1, 128));
+            ClusterGossipService gossipService = mock(ClusterGossipService.class);
+            CommandProcessor<String> processor = new CommandProcessor<>(
+                    new StringKeyCodec(),
+                    new CacheService<>(cache, valueCodecs()),
+                    membership,
+                    gossipService
+            );
+
+            assertEquals(
+                    "OK",
+                    processor.process(List.of("CLUSTER_ADD_NODE", "node-b", "localhost", "8081", "2021", "10002"))
+            );
+            assertEquals(2, membership.currentTopology().version());
+            assertEquals(2, membership.currentTopology().nodes().size());
+            verify(gossipService).broadcastTopology();
+
+            assertEquals("OK", processor.process(List.of("CLUSTER_REMOVE_NODE", "node-b")));
+            assertEquals(3, membership.currentTopology().version());
+            assertEquals(1, membership.currentTopology().nodes().size());
+            verify(gossipService, times(2)).broadcastTopology();
+        }
+    }
+
+    @Test
+    void processClusterAddNodeIsUnknownWhenGossipIsNotConfigured() {
+        try (var cache = new LocalCache<String>(10, new LruEvictionPolicy<>())) {
+            CommandProcessor<String> processor = processor(cache);
+
+            assertEquals(
+                    "ERROR unknown command",
+                    processor.process(List.of("CLUSTER_ADD_NODE", "node-b", "localhost", "8081", "2021", "10002"))
+            );
+        }
+    }
+
+    @Test
+    void processClusterAddAndRemoveNodeCommandsWithoutTopologyCommands() {
+        try (var cache = new LocalCache<String>(10, new LruEvictionPolicy<>())) {
+            CacheNode nodeA = new CacheNode("node-a", "localhost", 8080, 2020, 10001);
+            ClusterMembership membership = new ClusterMembership(new ClusterTopology(1, List.of(nodeA), 1, 128));
+            ClusterGossipService gossipService = mock(ClusterGossipService.class);
+            CommandProcessor<String> processor = new CommandProcessor<>(
+                    new StringKeyCodec(),
+                    new CacheService<>(cache, valueCodecs()),
+                    membership,
+                    gossipService,
+                    false
+            );
+
+            assertEquals(
+                    "OK",
+                    processor.process(List.of("CLUSTER_ADD_NODE", "node-b", "localhost", "8081", "2021", "10002"))
+            );
+            assertEquals("OK", processor.process(List.of("CLUSTER_REMOVE_NODE", "node-b")));
+            assertEquals("ERROR unknown command", processor.process(List.of("TOPOLOGY_GET")));
+            verify(gossipService, times(2)).broadcastTopology();
         }
     }
 

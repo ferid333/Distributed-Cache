@@ -2,6 +2,8 @@ package org.cache.cluster.routing;
 
 import org.cache.cluster.CacheNode;
 import org.cache.cluster.ClusterInfo;
+import org.cache.cluster.ClusterMembership;
+import org.cache.cluster.ClusterTopology;
 import org.cache.cluster.hashing.ConsistentHashRing;
 import org.cache.core.CacheOperations;
 import org.cache.protocol.codec.StringKeyCodec;
@@ -34,9 +36,10 @@ class RoutedCacheServiceTest {
         RoutedCacheService<String> service = new RoutedCacheService<>(
                 localService,
                 nodeA,
-                clusterInfo,
                 forwardingClient,
-                keyCodec
+                keyCodec,
+                true,
+                membership(clusterInfo)
         );
 
         when(localService.getString(key)).thenReturn(Optional.of("apple"));
@@ -54,9 +57,10 @@ class RoutedCacheServiceTest {
         RoutedCacheService<String> service = new RoutedCacheService<>(
                 localService,
                 nodeA,
-                clusterInfo,
                 forwardingClient,
-                keyCodec
+                keyCodec,
+                true,
+                membership(clusterInfo)
         );
 
         when(forwardingClient.forward(nodeB, List.of("GET", key))).thenReturn(List.of("VALUE", "apple"));
@@ -74,9 +78,10 @@ class RoutedCacheServiceTest {
         RoutedCacheService<String> service = new RoutedCacheService<>(
                 localService,
                 nodeA,
-                replicatedClusterInfo,
                 forwardingClient,
-                keyCodec
+                keyCodec,
+                true,
+                membership(replicatedClusterInfo)
         );
 
         when(forwardingClient.forward(nodeB, List.of("GET", key)))
@@ -98,9 +103,10 @@ class RoutedCacheServiceTest {
         RoutedCacheService<String> service = new RoutedCacheService<>(
                 localService,
                 nodeA,
-                replicatedClusterInfo,
                 forwardingClient,
-                keyCodec
+                keyCodec,
+                true,
+                membership(replicatedClusterInfo)
         );
 
         when(forwardingClient.forward(primaryOwner, List.of("GET", key)))
@@ -124,10 +130,10 @@ class RoutedCacheServiceTest {
         RoutedCacheService<String> service = new RoutedCacheService<>(
                 localService,
                 nodeA,
-                replicatedClusterInfo,
                 forwardingClient,
                 keyCodec,
-                false
+                false,
+                membership(replicatedClusterInfo)
         );
 
         var exception = assertThrows(ClusterForwardingException.class, () -> service.getString(key));
@@ -149,9 +155,10 @@ class RoutedCacheServiceTest {
         RoutedCacheService<String> service = new RoutedCacheService<>(
                 localService,
                 nodeA,
-                replicatedClusterInfo,
                 forwardingClient,
-                keyCodec
+                keyCodec,
+                true,
+                membership(replicatedClusterInfo)
         );
 
         for (CacheNode owner : remoteOwners) {
@@ -174,9 +181,10 @@ class RoutedCacheServiceTest {
         RoutedCacheService<String> service = new RoutedCacheService<>(
                 localService,
                 nodeA,
-                replicatedClusterInfo,
                 forwardingClient,
-                keyCodec
+                keyCodec,
+                true,
+                membership(replicatedClusterInfo)
         );
 
         when(forwardingClient.forward(nodeB, List.of("PUT", key, "apple", "1000"))).thenReturn(List.of("OK"));
@@ -197,10 +205,10 @@ class RoutedCacheServiceTest {
         RoutedCacheService<String> service = new RoutedCacheService<>(
                 localService,
                 nodeA,
-                replicatedClusterInfo,
                 forwardingClient,
                 keyCodec,
-                false
+                false,
+                membership(replicatedClusterInfo)
         );
 
         service.putString(key, "apple", 1_000);
@@ -221,10 +229,10 @@ class RoutedCacheServiceTest {
         RoutedCacheService<String> service = new RoutedCacheService<>(
                 localService,
                 nodeA,
-                replicatedClusterInfo,
                 forwardingClient,
                 keyCodec,
-                false
+                false,
+                membership(replicatedClusterInfo)
         );
 
         var exception = assertThrows(ClusterForwardingException.class, () -> service.putString(key, "apple", 1_000));
@@ -242,9 +250,10 @@ class RoutedCacheServiceTest {
         RoutedCacheService<String> service = new RoutedCacheService<>(
                 localService,
                 nodeA,
-                clusterInfo,
                 forwardingClient,
-                keyCodec
+                keyCodec,
+                true,
+                membership(clusterInfo)
         );
 
         when(forwardingClient.forward(nodeB, List.of("LRANGE", key, "0", "2"))).thenReturn(List.of("one", "two"));
@@ -262,9 +271,10 @@ class RoutedCacheServiceTest {
         RoutedCacheService<String> service = new RoutedCacheService<>(
                 localService,
                 nodeA,
-                replicatedClusterInfo,
                 forwardingClient,
-                keyCodec
+                keyCodec,
+                true,
+                membership(replicatedClusterInfo)
         );
 
         when(forwardingClient.forward(nodeB, List.of("LRANGE", key, "0", "2")))
@@ -281,7 +291,14 @@ class RoutedCacheServiceTest {
     void clusterDisabledUsesLocalService() {
         CacheOperations<String> localService = localService();
         ClusterForwardingClient forwardingClient = mock(ClusterForwardingClient.class);
-        RoutedCacheService<String> service = new RoutedCacheService<>(localService, nodeA, null, forwardingClient, keyCodec);
+        RoutedCacheService<String> service = new RoutedCacheService<>(
+                localService,
+                nodeA,
+                forwardingClient,
+                keyCodec,
+                true,
+                new ClusterMembership(null)
+        );
 
         when(localService.getString("fruit")).thenReturn(Optional.of("apple"));
 
@@ -293,6 +310,10 @@ class RoutedCacheServiceTest {
     @SuppressWarnings("unchecked")
     private CacheOperations<String> localService() {
         return mock(CacheOperations.class);
+    }
+
+    private ClusterMembership membership(ClusterInfo clusterInfo) {
+        return new ClusterMembership(new ClusterTopology(0, clusterInfo.nodes(), clusterInfo.replicationFactor(), 128));
     }
 
     private String keyOwnedBy(CacheNode owner) {

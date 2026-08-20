@@ -1,7 +1,11 @@
 package org.cache;
 
 import org.cache.cluster.CacheNode;
+import org.cache.cluster.ClusterGossipService;
 import org.cache.cluster.ClusterHealthMonitor;
+import org.cache.cluster.ClusterMembership;
+import org.cache.cluster.ClusterMembershipClient;
+import org.cache.cluster.ClusterTopology;
 import org.cache.cluster.routing.ClusterForwardingClient;
 import org.cache.cluster.routing.RoutedCacheService;
 import org.cache.config.CacheConfig;
@@ -71,6 +75,20 @@ public class Main {
     }
 
     @Bean
+    public ClusterMembership clusterMembership(CacheConfig cacheConfig) {
+        if (cacheConfig.clusterInfo() == null) {
+            return new ClusterMembership(null);
+        }
+
+        return new ClusterMembership(new ClusterTopology(
+                0,
+                cacheConfig.clusterInfo().nodes(),
+                cacheConfig.clusterInfo().replicationFactor(),
+                128
+        ));
+    }
+
+    @Bean
     public KeyCodec<Object> keyCodec(CacheConfig cacheConfig) {
         return cacheConfig.keyCodec();
     }
@@ -97,42 +115,49 @@ public class Main {
     public CacheOperations<Object> routedCacheService(
             CacheService<Object> cacheService,
             CacheNode cacheNode,
-            CacheConfig cacheConfig,
             ClusterForwardingClient forwardingClient,
-            KeyCodec<Object> keyCodec
+            KeyCodec<Object> keyCodec,
+            ClusterMembership clusterMembership
     ) {
-        return new RoutedCacheService<>(cacheService, cacheNode, cacheConfig.clusterInfo(), forwardingClient, keyCodec);
+        return new RoutedCacheService<>(cacheService, cacheNode, forwardingClient, keyCodec, true, clusterMembership);
     }
 
     @Bean
     public CacheOperations<Object> clusterRoutedCacheService(
             CacheService<Object> cacheService,
             CacheNode cacheNode,
-            CacheConfig cacheConfig,
             ClusterForwardingClient forwardingClient,
-            KeyCodec<Object> keyCodec
+            KeyCodec<Object> keyCodec,
+            ClusterMembership clusterMembership
     ) {
         return new RoutedCacheService<>(
                 cacheService,
                 cacheNode,
-                cacheConfig.clusterInfo(),
                 forwardingClient,
                 keyCodec,
-                false
+                false,
+                clusterMembership
         );
     }
 
     @Bean
-    public CommandProcessor<Object> commandProcessor(KeyCodec<Object> keyCodec, CacheOperations<Object> cacheService) {
-        return new CommandProcessor<>(keyCodec, cacheService);
+    public CommandProcessor<Object> commandProcessor(
+            KeyCodec<Object> keyCodec,
+            CacheOperations<Object> cacheService,
+            ClusterMembership clusterMembership,
+            ClusterGossipService clusterGossipService
+    ) {
+        return new CommandProcessor<>(keyCodec, cacheService, clusterMembership, clusterGossipService, false);
     }
 
     @Bean
     public CommandProcessor<Object> clusterCommandProcessor(
             KeyCodec<Object> keyCodec,
-            @Qualifier("clusterRoutedCacheService") CacheOperations<Object> cacheService
+            @Qualifier("clusterRoutedCacheService") CacheOperations<Object> cacheService,
+            ClusterMembership clusterMembership,
+            ClusterGossipService clusterGossipService
     ) {
-        return new CommandProcessor<>(keyCodec, cacheService);
+        return new CommandProcessor<>(keyCodec, cacheService, clusterMembership, clusterGossipService);
     }
 
     @Bean
@@ -141,12 +166,26 @@ public class Main {
     }
 
     @Bean
+    public ClusterMembershipClient clusterMembershipClient(ClusterForwardingClient forwardingClient) {
+        return new ClusterMembershipClient(forwardingClient);
+    }
+
+    @Bean
     public ClusterHealthMonitor clusterHealthMonitor(
             CacheNode cacheNode,
-            CacheConfig cacheConfig,
-            ClusterForwardingClient forwardingClient
+            ClusterMembership clusterMembership,
+            ClusterMembershipClient membershipClient
     ) {
-        return new ClusterHealthMonitor(cacheNode, cacheConfig.clusterInfo(), forwardingClient);
+        return new ClusterHealthMonitor(cacheNode, clusterMembership, membershipClient);
+    }
+
+    @Bean
+    public ClusterGossipService clusterGossipService(
+            CacheNode cacheNode,
+            ClusterMembership clusterMembership,
+            ClusterMembershipClient membershipClient
+    ) {
+        return new ClusterGossipService(cacheNode, clusterMembership, membershipClient);
     }
 
     @Bean(destroyMethod = "shutdownNow")

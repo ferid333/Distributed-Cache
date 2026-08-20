@@ -4,10 +4,6 @@ import org.cache.cluster.CacheNode;
 import org.cache.cluster.ClusterInfo;
 import org.cache.cluster.NodeStatus;
 
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -19,8 +15,6 @@ import java.util.TreeMap;
 public final class ConsistentHashRing {
 
     private static final int DEFAULT_VIRTUAL_NODE_COUNT = 128;
-    private static final String HASH_ALGORITHM = "SHA-256";
-
     private final NavigableMap<Long, CacheNode> ring = new TreeMap<>();
     private final int replicationFactor;
 
@@ -52,7 +46,7 @@ public final class ConsistentHashRing {
     public List<CacheNode> nodesFor(String key) {
         Objects.requireNonNull(key, "Key must not be null");
 
-        long keyHash = hash(key);
+        long keyHash = ClusterHash.hashLong(key);
         List<CacheNode> nodes = new ArrayList<>(replicationFactor);
         Set<String> selectedNodeIds = new HashSet<>();
 
@@ -70,7 +64,7 @@ public final class ConsistentHashRing {
 
     private void addNode(CacheNode node, int virtualNodeCount) {
         for (int index = 0; index < virtualNodeCount; index++) {
-            ring.put(hash(node.getId() + "#" + index), node);
+            ring.put(ClusterHash.hashLong(node.getId() + "#" + index), node);
         }
     }
 
@@ -86,13 +80,4 @@ public final class ConsistentHashRing {
         }
     }
 
-    private long hash(String value) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance(HASH_ALGORITHM);
-            byte[] hash = digest.digest(value.getBytes(StandardCharsets.UTF_8));
-            return ByteBuffer.wrap(hash).getLong() & Long.MAX_VALUE;
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException(HASH_ALGORITHM + " hash algorithm is not available", e);
-        }
-    }
 }

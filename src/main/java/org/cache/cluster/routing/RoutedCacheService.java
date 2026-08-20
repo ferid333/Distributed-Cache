@@ -1,7 +1,7 @@
 package org.cache.cluster.routing;
 
 import org.cache.cluster.CacheNode;
-import org.cache.cluster.ClusterInfo;
+import org.cache.cluster.ClusterMembership;
 import org.cache.cluster.hashing.ConsistentHashRing;
 import org.cache.core.CacheOperations;
 import org.cache.core.metrics.Snapshot;
@@ -16,48 +16,46 @@ public class RoutedCacheService<K> implements CacheOperations<K> {
     private final CacheOperations<K> localService;
     private final CacheNode currentNode;
     private final ClusterForwardingClient forwardingClient;
-    private final ConsistentHashRing hashRing;
     private final KeyCodec<K> keyCodec;
     private final CacheResponseParser responseParser;
     private final boolean forwardingAllowed;
+    private final ClusterMembership clusterMembership;
 
     public RoutedCacheService(
             CacheOperations<K> localService,
             CacheNode currentNode,
-            ClusterInfo clusterInfo,
-            ClusterForwardingClient forwardingClient,
-            KeyCodec<K> keyCodec
-    ) {
-        this(localService, currentNode, clusterInfo, forwardingClient, keyCodec, true);
-    }
-
-    public RoutedCacheService(
-            CacheOperations<K> localService,
-            CacheNode currentNode,
-            ClusterInfo clusterInfo,
             ClusterForwardingClient forwardingClient,
             KeyCodec<K> keyCodec,
-            boolean forwardingAllowed
+            boolean forwardingAllowed,
+            ClusterMembership clusterMembership
     ) {
-        this(localService, currentNode, clusterInfo, forwardingClient, keyCodec, new CacheResponseParser(), forwardingAllowed);
+        this(
+                localService,
+                currentNode,
+                forwardingClient,
+                keyCodec,
+                new CacheResponseParser(),
+                forwardingAllowed,
+                clusterMembership
+        );
     }
 
     RoutedCacheService(
             CacheOperations<K> localService,
             CacheNode currentNode,
-            ClusterInfo clusterInfo,
             ClusterForwardingClient forwardingClient,
             KeyCodec<K> keyCodec,
             CacheResponseParser responseParser,
-            boolean forwardingAllowed
+            boolean forwardingAllowed,
+            ClusterMembership clusterMembership
     ) {
         this.localService = localService;
         this.currentNode = currentNode;
         this.forwardingClient = forwardingClient;
-        this.hashRing = clusterInfo == null ? null : new ConsistentHashRing(clusterInfo);
         this.keyCodec = keyCodec;
         this.responseParser = responseParser;
         this.forwardingAllowed = forwardingAllowed;
+        this.clusterMembership = clusterMembership;
     }
 
     @Override
@@ -163,6 +161,8 @@ public class RoutedCacheService<K> implements CacheOperations<K> {
     }
 
     private ReplicationTargets writeTargetsFor(K key) {
+        ConsistentHashRing hashRing = hashRing();
+
         if (hashRing == null) {
             return new ReplicationTargets(true, List.of());
         }
@@ -189,6 +189,9 @@ public class RoutedCacheService<K> implements CacheOperations<K> {
     }
 
     private List<CacheNode> readOwnersFor(K key) {
+
+        ConsistentHashRing hashRing = hashRing();
+
         if (hashRing == null) {
             return List.of(currentNode);
         }
@@ -246,6 +249,10 @@ public class RoutedCacheService<K> implements CacheOperations<K> {
 
     private boolean isCurrentNode(CacheNode owner) {
         return owner.getId().equals(currentNode.getId());
+    }
+
+    private ConsistentHashRing hashRing() {
+        return clusterMembership == null ? null : clusterMembership.getHashRing();
     }
 
     private String ownerIds(List<CacheNode> owners) {

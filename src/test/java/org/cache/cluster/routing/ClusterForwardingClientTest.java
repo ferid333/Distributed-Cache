@@ -8,9 +8,7 @@ import java.io.IOException;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -40,34 +38,4 @@ class ClusterForwardingClientTest {
         assertThrows(ClusterForwardingException.class, () -> forwardingClient.forward(node, List.of("GET", "fruit")));
     }
 
-    @Test
-    void pingReturnsTrueWhenNodeRespondsWithPong() throws Exception {
-        RespCommandClient commandClient = mock(RespCommandClient.class);
-        ClusterForwardingClient forwardingClient = new ClusterForwardingClient(commandClient);
-
-        when(commandClient.send("localhost", 10001, List.of("PING"))).thenReturn(List.of("PONG"));
-
-        assertTrue(forwardingClient.ping(node));
-        verify(commandClient).send("localhost", 10001, List.of("PING"));
-    }
-
-    @Test
-    void pingReturnsFalseWhenNodeDoesNotRespondWithPong() throws Exception {
-        RespCommandClient commandClient = mock(RespCommandClient.class);
-        ClusterForwardingClient forwardingClient = new ClusterForwardingClient(commandClient);
-
-        when(commandClient.send("localhost", 10001, List.of("PING"))).thenReturn(List.of("ERROR", "broken"));
-
-        assertFalse(forwardingClient.ping(node));
-    }
-
-    @Test
-    void pingReturnsFalseWhenConnectionFails() throws Exception {
-        RespCommandClient commandClient = mock(RespCommandClient.class);
-        ClusterForwardingClient forwardingClient = new ClusterForwardingClient(commandClient);
-
-        when(commandClient.send("localhost", 10001, List.of("PING"))).thenThrow(new IOException("closed"));
-
-        assertFalse(forwardingClient.ping(node));
-    }
 }

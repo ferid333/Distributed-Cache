@@ -1,6 +1,5 @@
 package org.cache.cluster;
 
-import org.cache.cluster.routing.ClusterForwardingClient;
 import org.springframework.context.SmartLifecycle;
 
 import java.util.HashMap;
@@ -17,35 +16,35 @@ public class ClusterHealthMonitor implements SmartLifecycle {
     private static final long CHECK_INTERVAL_SECONDS = 5;
 
     private final CacheNode currentNode;
-    private final ClusterInfo clusterInfo;
-    private final ClusterForwardingClient forwardingClient;
+    private final ClusterMembership clusterMembership;
+    private final ClusterMembershipClient membershipClient;
     private final Map<String, Integer> failureCounts = new HashMap<>();
     private final ScheduledExecutorService executor;
     private volatile boolean running;
 
     public ClusterHealthMonitor(
             CacheNode currentNode,
-            ClusterInfo clusterInfo,
-            ClusterForwardingClient forwardingClient
+            ClusterMembership clusterMembership,
+            ClusterMembershipClient membershipClient
     ) {
-        this(currentNode, clusterInfo, forwardingClient, Executors.newSingleThreadScheduledExecutor());
+        this(currentNode, clusterMembership, membershipClient, Executors.newSingleThreadScheduledExecutor());
     }
 
     ClusterHealthMonitor(
             CacheNode currentNode,
-            ClusterInfo clusterInfo,
-            ClusterForwardingClient forwardingClient,
+            ClusterMembership clusterMembership,
+            ClusterMembershipClient membershipClient,
             ScheduledExecutorService executor
     ) {
         this.currentNode = currentNode;
-        this.clusterInfo = clusterInfo;
-        this.forwardingClient = forwardingClient;
+        this.clusterMembership = clusterMembership;
+        this.membershipClient = membershipClient;
         this.executor = executor;
     }
 
     @Override
     public void start() {
-        if (running || clusterInfo == null) {
+        if (running || clusterMembership.currentTopology() == null) {
             return;
         }
 
@@ -70,11 +69,12 @@ public class ClusterHealthMonitor implements SmartLifecycle {
     }
 
     void checkCluster() {
-        if (clusterInfo == null) {
+        ClusterTopology topology = clusterMembership.currentTopology();
+        if (topology == null) {
             return;
         }
 
-        for (CacheNode node : clusterInfo.nodes()) {
+        for (CacheNode node : topology.nodes()) {
             if (!node.getId().equals(currentNode.getId())) {
                 checkNode(node);
             }
@@ -90,15 +90,15 @@ public class ClusterHealthMonitor implements SmartLifecycle {
     }
 
     private void checkNode(CacheNode node) {
-        if (forwardingClient.ping(node)) {
+        if (membershipClient.ping(node)) {
             failureCounts.remove(node.getId());
-            node.setStatus(NodeStatus.HEALTHY);
+            clusterMembership.markStatus(node.getId(), NodeStatus.HEALTHY);
             return;
         }
 
         int failures = failureCounts.getOrDefault(node.getId(), 0) + 1;
         failureCounts.put(node.getId(), failures);
-        node.setStatus(statusFor(failures));
+        clusterMembership.markStatus(node.getId(), statusFor(failures));
     }
 
     private NodeStatus statusFor(int failures) {
