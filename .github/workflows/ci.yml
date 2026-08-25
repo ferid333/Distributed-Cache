@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - master
+      - develop
+  push:
+    branches:
+      - master
+      - develop
+
+permissions:
+  contents: read
+
+jobs:
+  pull-request-rules:
+    name: Pull Request Rules
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Validate PR title
+        env:
+          BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          if [[ "$BASE_BRANCH" == "develop" && ! "$PR_TITLE" =~ ^DVLP ]]; then
+            echo "PR title must start with DVLP when targeting develop."
+            echo "Target branch: $BASE_BRANCH"
+            echo "Actual title: $PR_TITLE"
+            exit 1
+          fi
+
+          title_length=${#PR_TITLE}
+          if (( title_length > 120 )); then
+            echo "PR title must not be longer than 120 characters."
+            echo "Actual length: $title_length"
+            exit 1
+          fi
+
+  unit-tests:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Make Gradle executable
+        run: chmod +x ./gradlew
+
+      - name: Run unit tests
+        run: ./gradlew test
+
+  checkstyle:
+    name: Checkstyle
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Make Gradle executable
+        run: chmod +x ./gradlew
+
+      - name: Run checkstyle
+        run: ./gradlew checkstyleMain checkstyleTest

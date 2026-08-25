@@ -1,0 +1,20 @@
+cluster:
+  replication-factor: 2
+  nodes:
+    - id: node-a
+      host: localhost
+      http-port: 8080
+      tcp-port: 2020
+      cluster-port: 10001
+
+    - id: node-b
+      host: localhost
+      http-port: 9001
+      tcp-port: 9002
+      cluster-port: 10002
+
+    - id: node-c
+      host: localhost
+      http-port: 9003
+      tcp-port: 9004
+      cluster-port: 10003

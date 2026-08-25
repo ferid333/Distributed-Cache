@@ -1,0 +1,11 @@
+capacity: 250
+defaultTtlMillis: 5000
+eviction-policy: mru
+key-type: int
+
+node:
+  id: node-test
+  host: 127.0.0.1
+  http-port: 18080
+  tcp-port: 12020
+  cluster-port: 11001

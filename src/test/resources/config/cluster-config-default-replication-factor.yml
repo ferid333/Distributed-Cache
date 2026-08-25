@@ -1,0 +1,7 @@
+cluster:
+  nodes:
+    - id: node-a
+      host: localhost
+      http-port: 8080
+      tcp-port: 2020
+      cluster-port: 10001
